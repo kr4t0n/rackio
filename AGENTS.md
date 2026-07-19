@@ -14,12 +14,18 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
 
 - `src/` — Vite + React 19 + TypeScript + Tailwind v4 SPA.
   - `src/app/` — application shell: `Topbar`, theme system, shared controls
-    (`IconButton`, `CompactButton`).
-  - `src/board/` — the board. M0 ships static chrome + placeholder cards; the
-    react-grid-layout engine, footprints, and persistence land here in M1.
-  - `src/cards/` (from M1) — card registry + one folder per card type. Cards
-    implement the `CardDefinition` contract (see PLAN.md §3); the board never
-    knows card internals.
+    (`IconButton`, `CompactButton`), icons, the aria-live `announce()` helper.
+  - `src/board/` — the board engine. `Board.tsx` orchestrates (edit mode,
+    catalog, settings, mobile stacked fallback); `BoardGrid.tsx` wraps
+    react-grid-layout v2; `CardFrame.tsx` renders the card shell + edit
+    affordances; `SettingsOverlay.tsx` is the flip-to-center settings panel;
+    `state.ts` is a pure reducer + zod-validated persistence
+    (`useBoardState.ts` adds localStorage; the storage layer moves server-side
+    in M2).
+  - `src/cards/` — card registry + one folder per card type. Cards implement
+    the `CardDefinition` contract in `registry.tsx` (Component + Settings +
+    zod config schema + supported footprints); the board never knows card
+    internals. Current types: `clock`, `utility`.
   - `src/styles/tokens.css` — the design system. All theme-varying values are
     CSS custom properties on `:root` / `html[data-theme="light"]`, mapped to
     Tailwind utilities via `@theme inline`. Dark is the default theme.
@@ -59,10 +65,22 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
 - **Theme**: `html[data-theme]` drives every color via CSS vars. An inline
   script in `index.html` applies the persisted theme pre-paint (no FOUC) —
   keep it in sync with `src/app/theme.ts` (`rackio-theme` localStorage key).
-- **Grid rows must be fixed height** (`auto-rows-[72px]`). `minmax(72px,auto)`
-  rows stretch to fill the section's `min-height` and cards balloon. M1
-  replaces the fixed 72px with a ResizeObserver-computed square cell:
-  `(width − 11·gap) / 12`.
+- **react-grid-layout v2** (not v1): config lives in `gridConfig` /
+  `dragConfig` / `resizeConfig` objects, not flat props, and the package
+  ships its own types plus a `useContainerWidth` hook (which drives the
+  square-cell math: `(width − 11·gap) / 12`, see `grid-math.ts`).
+- **Never put transforms on `.react-grid-item`** — RGL owns that transform.
+  Visual effects (drag lift, flip) go on the inner `.card-frame` or in an
+  overlay portal.
+- **`set-positions` must be referentially stable when nothing moved**
+  (`state.ts`): RGL fires `onLayoutChange` after every commit; returning a
+  new state object each time would loop forever.
+- **Edit mode fades card content** (`opacity-35` + `inert`) so affordances
+  read clearly — edit chrome overlays content by design; don't "fix" overlap
+  by moving card content around.
+- **Pixel positions shift between edit and view mode** (the board-head hint
+  text wraps differently) — compare stored board JSON, not bounding boxes,
+  when asserting persistence.
 - **tsconfig layout**: three referenced projects (`app`, `node` for
   vite/eslint configs, `server`), all `noEmit` — nothing is compiled to JS;
   `tsx` runs the server directly. `shared/` is included by both `app` and
@@ -87,7 +105,11 @@ polish is high — compare against the reference design in `.argus/uploads/`.
 
 ## Tech debt / planned
 
-- Reset-board control returns with M1 (needs board state to reset).
+- Card drag is pointer-only; keyboard move actions (via card menu) are a
+  planned follow-up.
+- Board persistence is localStorage until `/api/board` lands in M2.
+- "Reset board" from the reference design was deliberately dropped (Kyle:
+  demo-only affordance) — don't reintroduce it.
 - Server has no tests yet (meaningful once `/api/board` lands in M2).
 - `start` script runs TS via `tsx` in production; fine for homelab scale,
   revisit for a leaner image in M5.

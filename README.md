@@ -11,8 +11,11 @@ board that feels like a control surface: live weather rendered with WebGL,
 what you're reading in Calibre, whether Plex and Home Assistant are up — at a
 glance, arranged your way.
 
-**Status**: M0 (foundation) — app shell, theming, API server, and tooling are
-in place. The board engine (drag, footprints, persistence) lands in M1. See
+**Status**: M1 (board engine) — the board is playable: edit mode, drag by
+handle on a square-cell 12-column grid, per-card footprint switching, an
+"Add card" catalog, per-card settings in a flip-to-center panel, and layout
+persistence (localStorage; server-side persistence lands in M2). Two card
+types so far: a clock and a configurable utility placeholder. See
 [PLAN.md](PLAN.md) for the full roadmap.
 
 ## Prerequisites
@@ -51,8 +54,10 @@ npm run typecheck  # tsc across app, server, and tooling configs
 ```
 
 `node scripts/screenshot.mjs` captures dark/light/mobile screenshots of a
-running instance (`BASE_URL` to point elsewhere, `CHROMIUM_PATH` to reuse a
-cached Chromium build).
+running instance; `node scripts/smoke-board.mjs` drives the board headlessly
+(drag, footprints, settings, catalog, persistence) and fails on regressions.
+Both take `BASE_URL` to point elsewhere and `CHROMIUM_PATH` to reuse a cached
+Chromium build.
 
 ## Environment variables
 
@@ -69,12 +74,13 @@ in `.env` (gitignored) — never in source.
 
 ```
 src/            React SPA
-  app/          shell: topbar, theme, shared controls
-  board/        board chrome; grid engine lands here in M1
+  app/          shell: topbar, theme, icons, announcer, shared controls
+  board/        grid engine, card frame, settings overlay, catalog, board state
+  cards/        card registry + one folder per card type (clock, utility)
   styles/       design tokens (oklch, dark/light) + Tailwind setup
 server/         Hono API server; serves dist/ in production
 shared/         types shared by SPA and server (footprints, board state)
-scripts/        dev utilities (screenshots)
+scripts/        dev utilities (screenshots, board smoke test)
 data/           runtime state (gitignored; server-persisted board from M2)
 ```
 

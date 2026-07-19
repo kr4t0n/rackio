@@ -141,13 +141,15 @@ interface CardDefinition<C> {
 Each milestone ends green (lint, typecheck, tests) and visually verified via
 screenshot on the dev stack.
 
-**M0 — Foundation (skeleton on screen)**
+**M0 — Foundation (skeleton on screen)** ✅ *(done 2026-07-19)*
 Scaffold (Vite react-ts, Tailwind v4, ESLint flat, Vitest, Hono, git init +
 conventional commits), port oklch tokens, build app shell: topbar (brand, board name,
 reset, theme toggle), board chrome (blueprint background, heading), theme persistence.
 README + AGENTS.md + CI from day one.
 
-**M1 — Board engine (the core interaction)**
+**M1 — Board engine (the core interaction)** ✅ *(done 2026-07-19; "reset
+board" dropped — demo-only affordance. Shipped with clock + utility cards and
+a headless smoke test, `scripts/smoke-board.mjs`.)*
 react-grid-layout integration: square-cell rowHeight from ResizeObserver, drag by
 handle only, three footprints per card frame, add/remove cards, edit mode, catalog
 drawer, reset. **Settings surface**: settings gear → centered settings panel
