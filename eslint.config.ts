@@ -22,4 +22,12 @@ export default defineConfig([
       reactRefresh.configs.vite,
     ],
   },
+  {
+    // Card modules export a definition object alongside components by design,
+    // and the announcer pairs its live region with the announce() helper.
+    files: ["src/cards/**/index.tsx", "src/app/announcer.tsx"],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
 ]);

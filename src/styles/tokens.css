@@ -97,6 +97,31 @@ html[data-theme="light"] {
   }
 }
 
+/* react-grid-layout: restyle the drag placeholder + lift dragging cards.
+   The grid item's transform belongs to RGL — visual effects go on the inner
+   .card-frame, never on .react-grid-item itself. */
+.react-grid-item > .card-frame {
+  height: 100%;
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: color-mix(in oklch, var(--accent) 16%, transparent);
+  border: 1px dashed color-mix(in oklch, var(--accent) 55%, transparent);
+  border-radius: var(--radius-card);
+  opacity: 1;
+  transition-duration: 120ms;
+}
+
+.react-grid-item.react-draggable-dragging {
+  z-index: 25;
+  cursor: grabbing;
+}
+
+.react-grid-item.react-draggable-dragging .card-frame {
+  box-shadow: 0 28px 70px color-mix(in oklch, var(--bg) 70%, transparent);
+  transform: scale(1.012) rotate(0.25deg);
+}
+
 /* The blueprint grid that gives the board its drafting-table feel:
    a strong line every --grid-size, a faint line every 8px. */
 @utility board-blueprint {

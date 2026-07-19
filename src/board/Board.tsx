@@ -1,46 +1,103 @@
-/**
- * Board chrome for M0: blueprint background, heading, and static placeholder
- * cards demonstrating the card frame + grid metrics. The real grid engine
- * (drag, footprints, persistence) replaces the placeholders in M1.
- */
+import { useCallback, useEffect, useState } from "react";
+import type { Footprint } from "@shared/types";
+import { announce } from "@/app/announcer";
+import { CompactButton } from "@/app/controls";
+import { CheckIcon, PencilIcon, PlusIcon } from "@/app/icons";
+import { getCardDefinition } from "@/cards/registry";
+import { BoardGrid } from "./BoardGrid";
+import { CardFrame } from "./CardFrame";
+import { CatalogDrawer } from "./CatalogDrawer";
+import type { SettingsTarget } from "./SettingsOverlay";
+import { SettingsOverlay } from "./SettingsOverlay";
+import { nextFreeRow } from "./state";
+import { useBoardState } from "./useBoardState";
 
-function PlaceholderCard({
-  title,
-  state,
-  caption,
-  className = "",
-}: {
-  title: string;
-  state: string;
-  caption: string;
-  className?: string;
-}) {
-  return (
-    <article
-      className={`relative flex min-h-[248px] flex-col overflow-hidden rounded-card border border-border bg-[color-mix(in_oklch,var(--surface)_90%,transparent)] p-[22px] shadow-card ${className}`}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="m-0 text-[15px] font-semibold tracking-[-0.01em]">
-          {title}
-        </h2>
-        <span
-          aria-label="Ready"
-          className="h-2 w-2 rounded-full bg-success shadow-[0_0_0_4px_color-mix(in_oklch,var(--color-success)_14%,transparent)]"
-        />
-      </div>
-      <div className="mt-auto pt-8">
-        <p className="m-0 text-[22px] leading-[1.2] tracking-[-0.02em]">
-          {state}
-        </p>
-        <p className="m-0 mt-[7px] max-w-[30ch] text-xs tracking-[0.01em] text-muted">
-          {caption}
-        </p>
-      </div>
-    </article>
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(
+    () => window.matchMedia("(max-width: 768px)").matches,
   );
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 768px)");
+    const onChange = (event: MediaQueryListEvent) => setIsMobile(event.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+  return isMobile;
 }
 
+const MOBILE_FOOTPRINT_CLASS: Record<Footprint, string> = {
+  small: "w-[min(100%,240px)] aspect-square",
+  big: "w-[min(100%,500px)] aspect-square",
+  wide: "w-[min(100%,500px)] aspect-[2/1]",
+};
+
 export function Board() {
+  const [board, dispatch] = useBoardState();
+  const [editMode, setEditMode] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [settingsTarget, setSettingsTarget] = useState<SettingsTarget | null>(
+    null,
+  );
+  const isMobile = useIsMobile();
+
+  const addCard = useCallback(
+    (type: string) => {
+      const definition = getCardDefinition(type);
+      if (!definition) return;
+      dispatch({
+        kind: "add",
+        card: {
+          id: crypto.randomUUID(),
+          type,
+          footprint: definition.defaultFootprint,
+          x: 0,
+          y: nextFreeRow(board),
+          config: definition.defaultConfig as Record<string, unknown>,
+        },
+      });
+      setEditMode(true);
+      announce(`${definition.name} card added to the board.`);
+    },
+    [board, dispatch],
+  );
+
+  const removeCard = useCallback(
+    (id: string) => {
+      dispatch({ kind: "remove", id });
+      announce("Card removed from the board.");
+    },
+    [dispatch],
+  );
+
+  const changeFootprint = useCallback(
+    (id: string, footprint: Footprint) => {
+      dispatch({ kind: "set-footprint", id, footprint });
+      announce(`Card footprint changed to ${footprint}.`);
+    },
+    [dispatch],
+  );
+
+  const openSettings = useCallback(
+    (id: string, originRect: DOMRect) => {
+      const card = board.cards.find((c) => c.id === id);
+      const definition = card && getCardDefinition(card.type);
+      if (!card || !definition) return;
+      setSettingsTarget({ card, definition, originRect });
+    },
+    [board.cards],
+  );
+
+  const saveSettings = useCallback(
+    (id: string, config: Record<string, unknown>) => {
+      dispatch({ kind: "set-config", id, config });
+      setSettingsTarget(null);
+      announce("Card settings saved.");
+    },
+    [dispatch],
+  );
+
+  const sortedCards = [...board.cards].sort((a, b) => a.y - b.y || a.x - b.x);
+
   return (
     <main className="board-blueprint relative min-h-[calc(100dvh-68px)] p-[clamp(18px,3vw,42px)]">
       <div className="mx-auto mb-[22px] flex max-w-360 items-end justify-between gap-6 max-md:flex-col max-md:items-start">
@@ -52,29 +109,86 @@ export function Board() {
             Your rack, at a glance.
           </h1>
           <p className="m-0 mt-[7px] max-w-[58ch] text-sm text-muted">
-            Cards for every service on the rack — drag them into the layout
-            that fits how you check in.
+            {isMobile
+              ? "Cards stack on small screens — arrange the layout from a larger one."
+              : editMode
+                ? "Drag cards by their handle, switch footprints, or open a card's settings from the gear."
+                : "Cards for every service on the rack. Switch to edit mode to arrange them."}
           </p>
         </div>
+        {!isMobile && (
+          <div className="flex items-center gap-2">
+            <CompactButton onClick={() => setCatalogOpen(true)}>
+              <PlusIcon />
+              <span>Add card</span>
+            </CompactButton>
+            <CompactButton
+              aria-pressed={editMode}
+              onClick={() => {
+                setEditMode((on) => {
+                  announce(on ? "Edit mode off." : "Edit mode on.");
+                  return !on;
+                });
+              }}
+              className={
+                editMode ? "!bg-fg !text-bg hover:!bg-fg hover:!text-bg" : ""
+              }
+            >
+              {editMode ? <CheckIcon /> : <PencilIcon />}
+              <span>{editMode ? "Done" : "Edit board"}</span>
+            </CompactButton>
+          </div>
+        )}
       </div>
 
-      <section
-        aria-label="Rackio service cards"
-        className="mx-auto grid min-h-[620px] max-w-360 auto-rows-[72px] grid-cols-12 items-stretch gap-4 max-md:flex max-md:min-h-0 max-md:flex-col"
-      >
-        <PlaceholderCard
-          title="Rack health"
-          state="Ready to connect"
-          caption="Add your first monitoring service to surface health signals here."
-          className="col-span-4 row-span-3 max-lg:col-span-6"
-        />
-        <PlaceholderCard
-          title="Storage"
-          state="No source yet"
-          caption="Storage cards will inherit the same three responsive footprints."
-          className="col-span-4 row-span-3 max-lg:col-span-6"
-        />
-      </section>
+      {isMobile ? (
+        <section
+          aria-label="Rackio service cards"
+          className="flex flex-col gap-4"
+        >
+          {sortedCards.map((card) => {
+            const definition = getCardDefinition(card.type);
+            if (!definition) return null;
+            return (
+              <div key={card.id} className={MOBILE_FOOTPRINT_CLASS[card.footprint]}>
+                <CardFrame
+                  card={card}
+                  definition={definition}
+                  editMode={false}
+                  draggable={false}
+                  onOpenSettings={openSettings}
+                  onRemove={removeCard}
+                  onFootprintChange={changeFootprint}
+                />
+              </div>
+            );
+          })}
+        </section>
+      ) : (
+        <section aria-label="Rackio service cards">
+          <BoardGrid
+            board={board}
+            editMode={editMode}
+            onPositionsChange={(positions) =>
+              dispatch({ kind: "set-positions", positions })
+            }
+            onOpenSettings={openSettings}
+            onRemove={removeCard}
+            onFootprintChange={changeFootprint}
+          />
+        </section>
+      )}
+
+      <CatalogDrawer
+        open={catalogOpen}
+        onAdd={addCard}
+        onClose={() => setCatalogOpen(false)}
+      />
+      <SettingsOverlay
+        target={settingsTarget}
+        onSave={saveSettings}
+        onClose={() => setSettingsTarget(null)}
+      />
     </main>
   );
 }
