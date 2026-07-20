@@ -135,11 +135,17 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
 - **Calibre-Web has no reading-progress API** (progress is Kobo-sync-only),
   so the reference design's progress bar was deliberately dropped — the card
   ships shelves ("new"/"hot" OPDS feeds) + deep links. Don't fake a % bar.
-- **Calibre connection lives in `.env`, not card config** — credentials must
-  never enter board.json (it syncs to every client). The server loads `.env`
-  via `process.loadEnvFile()` at startup; covers are proxied through
-  `/api/calibre/cover/:id` so the browser never sees the basic-auth header.
-  Kyle's instance: https://book.kubitnodes.com (OPDS 401s without creds).
+- **Calibre connection is configured from the card's settings UI**, but the
+  credentials are stored server-side in `DATA_DIR/connections.json` (0600) —
+  never in board.json, which syncs to every client. `PUT
+  /api/calibre/connection` validates against the live library and only
+  persists working credentials; `GET` returns a sanitized status (no
+  password). `CALIBRE_*` env vars override the UI (deployment-managed mode —
+  the form shows "managed by the server environment"). Covers are proxied
+  through `/api/calibre/cover/:id` so the browser never sees the basic-auth
+  header. Kyle's instance: https://book.kubitnodes.com.
+  `scripts/verify-connect.mjs` drives the whole flow headlessly against the
+  authed mock (`MOCK_USER=… MOCK_PASSWORD=… node scripts/mock-calibre.mjs`).
 - **`scripts/mock-calibre.mjs`** fakes the OPDS catalog (books + SVG covers,
   optional basic auth) — use it with `CALIBRE_BASE_URL=http://localhost:8093`
   to develop the card without touching the real library.

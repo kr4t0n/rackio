@@ -18,10 +18,11 @@ layout persists **server-side** (`data/board.json`) with newer-wins conflict
 resolution against the localStorage cache. Card types: **weather** (live
 Open-Meteo conditions rendered as an animated WebGL sky, with a location
 picker in settings), **calibre library** (fresh reads from Calibre-Web's
-OPDS catalog with proxied covers and deep links; connection via `.env`),
-**service tile** (link + live health checks via the server's LAN-only probe),
-clock, and a utility placeholder. Docker packaging included. See
-[PLAN.md](PLAN.md) for the full roadmap.
+OPDS catalog with proxied covers and deep links; connect from the card's
+settings — credentials are validated then stored server-side, never in the
+board), **service tile** (link + live health checks via the server's
+LAN-only probe), clock, and a utility placeholder. Docker packaging
+included. See [PLAN.md](PLAN.md) for the full roadmap.
 
 ## Prerequisites
 
@@ -72,10 +73,13 @@ Chromium build.
 | `HOST` | `0.0.0.0` | Bind address (all interfaces — rackio is a LAN app) |
 | `DATA_DIR` | `data` | Where `board.json` lives; mount a volume here in Docker/k8s |
 | `NODE_ENV` | — | `production` makes the server serve `dist/` |
-| `CALIBRE_BASE_URL` | — | Calibre-Web base URL (card shows a setup hint if unset) |
-| `CALIBRE_USER` / `CALIBRE_PASSWORD` | — | Calibre-Web user for OPDS basic auth |
+| `CALIBRE_BASE_URL` | — | Optional override: locks the calibre connection to the environment |
+| `CALIBRE_USER` / `CALIBRE_PASSWORD` | — | Used with the override above (Docker/k8s deployments) |
 
 The server loads `.env` automatically at startup (`process.loadEnvFile`).
+Normally the calibre connection is set up from the card's settings UI and
+stored in `DATA_DIR/connections.json` (0600) — the env vars exist for
+deployments where secrets come from the platform.
 
 ### API
 
@@ -87,6 +91,8 @@ The server loads `.env` automatically at startup (`process.loadEnvFile`).
 - `GET /api/geocode?q=` — Open-Meteo place search for the weather card
 - `GET /api/calibre/books?source=new|hot` — Calibre-Web OPDS shelf, cached 5 min
 - `GET /api/calibre/cover/:id` — cover image proxy (auth stays server-side)
+- `GET/PUT/DELETE /api/calibre/connection` — connection status (sanitized) and
+  UI-driven setup; PUT validates credentials against the library before saving
 
 `node scripts/mock-calibre.mjs` runs a fake Calibre-Web OPDS server on :8093
 for developing the calibre card without a real library.
