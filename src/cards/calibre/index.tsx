@@ -185,19 +185,23 @@ function Feature({
 
 function ShelfStrip({
   shelf,
-  count,
+  cols,
+  max,
   showTitles,
+  gapClass = "gap-2.5",
 }: {
   shelf: CalibreShelf;
-  count: number;
+  cols: number;
+  max: number;
   showTitles: boolean;
+  gapClass?: string;
 }) {
-  const books = shelf.books?.slice(1, 1 + count) ?? [];
+  const books = shelf.books?.slice(1, 1 + max) ?? [];
   if (books.length === 0) return null;
   return (
     <div
-      className="grid gap-2.5"
-      style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}
+      className={`grid ${gapClass}`}
+      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
     >
       {books.map((book) => (
         <div key={book.id} className="min-w-0">
@@ -224,15 +228,24 @@ function CalibreCard({ config, footprint }: CardComponentProps<CalibreConfig>) {
       <div className="flex h-full flex-col gap-2.5 p-3.5">
         <Header title="Library" webUrl={shelf?.webUrl} compact />
         {hasBooks && shelf ? (
-          <div className="flex min-h-0 flex-1 flex-col justify-end">
+          <>
             <Feature
               shelf={shelf}
               label={copy.label}
               coverClass="w-[3.2rem] shrink-0"
-              titleClass="text-[15px] leading-[1.15] line-clamp-2"
-              showAuthor={false}
+              titleClass="text-[14px] leading-[1.15] line-clamp-2"
+              showAuthor
             />
-          </div>
+            <div className="mt-auto">
+              <ShelfStrip
+                shelf={shelf}
+                cols={4}
+                max={4}
+                showTitles={false}
+                gapClass="gap-1.5"
+              />
+            </div>
+          </>
         ) : (
           <EmptyState shelf={shelf} />
         )}
@@ -245,7 +258,7 @@ function CalibreCard({ config, footprint }: CardComponentProps<CalibreConfig>) {
       <div className="flex h-full flex-col gap-2.5 p-3.5">
         <Header title={copy.title} webUrl={shelf?.webUrl} compact />
         {hasBooks && shelf ? (
-          <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1.45fr)_minmax(118px,0.75fr)] gap-3">
+          <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1.35fr)_minmax(132px,0.85fr)] gap-3">
             <Feature
               shelf={shelf}
               label={copy.label}
@@ -257,7 +270,13 @@ function CalibreCard({ config, footprint }: CardComponentProps<CalibreConfig>) {
               <p className="m-0 mb-1.5 text-[11px] font-semibold tracking-[-0.005em]">
                 On the shelf
               </p>
-              <ShelfStrip shelf={shelf} count={3} showTitles={false} />
+              <ShelfStrip
+                shelf={shelf}
+                cols={3}
+                max={6}
+                showTitles={false}
+                gapClass="gap-1.5"
+              />
             </div>
           </div>
         ) : (
@@ -280,15 +299,22 @@ function CalibreCard({ config, footprint }: CardComponentProps<CalibreConfig>) {
             showAuthor
           />
           <div>
-            <div className="mb-2.5 flex items-center justify-between">
+            <div className="mb-2.5 flex items-baseline justify-between">
               <p className="m-0 text-[13px] font-semibold tracking-[-0.005em]">
                 On the shelf
               </p>
-              <span className="font-mono text-[10px] tracking-[0.04em] text-muted uppercase">
-                {(shelf.books?.length ?? 1) - 1} books
-              </span>
+              {shelf.webUrl ? (
+                <a
+                  href={shelf.webUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[11px] font-[550] tracking-[0.02em] text-muted no-underline transition-colors hover:text-fg"
+                >
+                  View library →
+                </a>
+              ) : null}
             </div>
-            <ShelfStrip shelf={shelf} count={5} showTitles />
+            <ShelfStrip shelf={shelf} cols={6} max={6} showTitles />
           </div>
         </div>
       ) : (
