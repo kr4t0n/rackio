@@ -79,22 +79,15 @@ function SettingsPanel({
 
   const originCenterX = originRect.left + originRect.width / 2;
   const originCenterY = originRect.top + originRect.height / 2;
-  const fromCard = reducedMotion
-    ? { opacity: 0 }
-    : {
-        x: originCenterX - window.innerWidth / 2,
-        y: originCenterY - window.innerHeight / 2,
-        scale: Math.min(1, originRect.width / PANEL_WIDTH),
-        rotateY: -180,
-        opacity: 1,
-      };
-  const atCenter = reducedMotion
-    ? { opacity: 1 }
-    : { x: 0, y: 0, scale: 1, rotateY: 0, opacity: 1 };
-
+  const cardOffset = {
+    x: originCenterX - window.innerWidth / 2,
+    y: originCenterY - window.innerHeight / 2,
+    scale: Math.min(1, originRect.width / PANEL_WIDTH),
+    rotateY: -180,
+  };
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center p-4 perspective-[1600px]"
+      className="fixed inset-0 z-50 grid place-items-center p-4"
       role="dialog"
       aria-modal="true"
       aria-label={`${definition.name} settings`}
@@ -106,18 +99,39 @@ function SettingsPanel({
         exit={{ opacity: 0 }}
         onClick={onClose}
       />
+      {/* Fade lives on this shell, never on the 3D element below: opacity < 1
+          forces the browser to flatten a preserve-3d context, which breaks
+          backface culling and shows mirrored settings mid-flight. The exit
+          fade is delayed so the panel dissolves just before landing on the
+          card instead of materializing on top of it. */}
+      <motion.div
+        className="relative w-[min(480px,100%)] perspective-[1600px]"
+        initial={{ opacity: reducedMotion ? 0 : 1 }}
+        animate={{ opacity: 1 }}
+        exit={{
+          opacity: 0,
+          transition: reducedMotion
+            ? { duration: 0.15 }
+            : { duration: 0.16, delay: 0.26, ease: "easeOut" },
+        }}
+      >
       <motion.div
         ref={panelRef}
         tabIndex={-1}
-        className="relative w-[min(480px,100%)] outline-none transform-3d"
-        initial={fromCard}
-        animate={atCenter}
-        exit={fromCard}
-        transition={
-          reducedMotion
-            ? { duration: 0.15 }
-            : { type: "spring", duration: 0.55, bounce: 0.16 }
+        className="outline-none transform-3d"
+        initial={reducedMotion ? false : cardOffset}
+        animate={
+          reducedMotion ? undefined : { x: 0, y: 0, scale: 1, rotateY: 0 }
         }
+        exit={
+          reducedMotion
+            ? undefined
+            : {
+                ...cardOffset,
+                transition: { type: "spring", duration: 0.5, bounce: 0 },
+              }
+        }
+        transition={{ type: "spring", duration: 0.55, bounce: 0.16 }}
       >
         {/* Card back — visible during the first half of the flip. */}
         {!reducedMotion && (
@@ -180,6 +194,7 @@ function SettingsPanel({
             </button>
           </div>
         </div>
+      </motion.div>
       </motion.div>
     </div>
   );

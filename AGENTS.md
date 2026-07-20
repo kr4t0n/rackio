@@ -72,6 +72,11 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
 - **Never put transforms on `.react-grid-item`** — RGL owns that transform.
   Visual effects (drag lift, flip) go on the inner `.card-frame` or in an
   overlay portal.
+- **Never animate opacity on a `preserve-3d` element** (`SettingsOverlay`):
+  opacity < 1 forces the browser to flatten the 3D context, which kills
+  backface culling — the flip shows mirrored settings text instead of the
+  card back. The fade lives on a wrapper shell (which also carries
+  `perspective`); the flipping element keeps opacity 1 forever.
 - **`set-positions` must be referentially stable when nothing moved**
   (`state.ts`): RGL fires `onLayoutChange` after every commit; returning a
   new state object each time would loop forever.
