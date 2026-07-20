@@ -2,8 +2,17 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { logger } from "hono/logger";
+import { z } from "zod";
 import { validateBoardState } from "../shared/board-schema.ts";
-import { fetchCover, getShelf } from "./connectors/calibre.ts";
+import { createConnectionStore } from "./connection-store.ts";
+import {
+  clearCalibreCache,
+  fetchCover,
+  fetchShelf,
+  getShelf,
+  initCalibre,
+  resolveConnection,
+} from "./connectors/calibre.ts";
 import { assertSafeTarget, probe } from "./connectors/ping.ts";
 import { geocode, getWeather } from "./connectors/weather.ts";
 import { createBoardStore } from "./store.ts";
@@ -20,7 +29,10 @@ const port = Number(process.env.PORT ?? 8787);
 // Bind all interfaces — rackio is reached over the LAN/tailnet, not just localhost.
 const hostname = process.env.HOST ?? "0.0.0.0";
 
-const store = createBoardStore(process.env.DATA_DIR ?? "data");
+const dataDir = process.env.DATA_DIR ?? "data";
+const store = createBoardStore(dataDir);
+const connections = createConnectionStore(dataDir);
+initCalibre(connections);
 
 const api = new Hono();
 
@@ -82,6 +94,66 @@ api.get("/geocode", async (c) => {
 api.get("/calibre/books", async (c) => {
   const source = c.req.query("source") === "hot" ? "hot" : "new";
   return c.json(await getShelf(source));
+});
+
+// Connection status, sanitized — the password never leaves the server.
+api.get("/calibre/connection", async (c) => {
+  const connection = await resolveConnection();
+  if (!connection) return c.json({ configured: false });
+  return c.json({
+    configured: true,
+    source: connection.source,
+    baseUrl: connection.baseUrl,
+    user: connection.user,
+  });
+});
+
+const calibreConnectionSchema = z.object({
+  baseUrl: z
+    .url()
+    .max(200)
+    .refine((u) => u.startsWith("http://") || u.startsWith("https://"), {
+      message: "baseUrl must be http(s)",
+    }),
+  user: z.string().min(1).max(100),
+  password: z.string().max(200),
+});
+
+// Validate against the live library first; only working credentials persist.
+api.put("/calibre/connection", async (c) => {
+  const current = await resolveConnection();
+  if (current?.source === "env") {
+    return c.json({ error: "connection is managed by the server environment" }, 409);
+  }
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "invalid JSON" }, 400);
+  }
+  const parsed = calibreConnectionSchema.safeParse(body);
+  if (!parsed.success) return c.json({ error: "invalid connection details" }, 400);
+  const candidate = {
+    ...parsed.data,
+    baseUrl: parsed.data.baseUrl.replace(/\/+$/, ""),
+  };
+  const shelf = await fetchShelf(candidate, "new");
+  if (shelf.error) {
+    return c.json({ ok: false, error: shelf.error });
+  }
+  await connections.saveCalibre(candidate);
+  clearCalibreCache();
+  return c.json({ ok: true, books: shelf.books?.length ?? 0 });
+});
+
+api.delete("/calibre/connection", async (c) => {
+  const current = await resolveConnection();
+  if (current?.source === "env") {
+    return c.json({ error: "connection is managed by the server environment" }, 409);
+  }
+  await connections.clearCalibre();
+  clearCalibreCache();
+  return c.json({ ok: true });
 });
 
 api.get("/calibre/cover/:id", async (c) => {

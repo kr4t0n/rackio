@@ -1,9 +1,14 @@
 import { XMLParser } from "fast-xml-parser";
+import type {
+  CalibreConnection,
+  ConnectionStore,
+} from "../connection-store.ts";
 
 /**
  * Calibre-Web connector via its OPDS catalog (Atom XML). Connection settings
- * come from the environment — credentials never live in board.json:
- *   CALIBRE_BASE_URL, CALIBRE_USER, CALIBRE_PASSWORD
+ * come from the card's settings UI (persisted server-side in DATA_DIR/
+ * connections.json — never in board.json) or from CALIBRE_* env vars, which
+ * take precedence when set (the k8s/Docker deployment path).
  *
  * Note: Calibre-Web does not expose reading progress through any API
  * (it's Kobo-sync-only), so the card ships shelves + deep links, no % bar.
@@ -25,25 +30,41 @@ export interface CalibreShelf {
   error?: "unauthorized" | "unreachable";
 }
 
-export interface CalibreEnv {
-  baseUrl?: string;
-  user?: string;
-  password?: string;
+let connectionStore: ConnectionStore | null = null;
+
+export function initCalibre(store: ConnectionStore): void {
+  connectionStore = store;
 }
 
-export function calibreEnv(): CalibreEnv {
-  return {
-    baseUrl: process.env.CALIBRE_BASE_URL?.replace(/\/+$/, ""),
-    user: process.env.CALIBRE_USER,
-    password: process.env.CALIBRE_PASSWORD,
-  };
+export type ConnectionSource = "env" | "saved";
+
+export interface ResolvedConnection extends CalibreConnection {
+  source: ConnectionSource;
 }
 
-export function authHeaders(env: CalibreEnv): Record<string, string> {
-  if (!env.user) return {};
-  const token = Buffer.from(`${env.user}:${env.password ?? ""}`).toString(
-    "base64",
-  );
+/** Env vars win (deployment-managed); otherwise the UI-saved connection. */
+export async function resolveConnection(): Promise<ResolvedConnection | null> {
+  const envBase = process.env.CALIBRE_BASE_URL?.replace(/\/+$/, "");
+  if (envBase) {
+    return {
+      source: "env",
+      baseUrl: envBase,
+      user: process.env.CALIBRE_USER ?? "",
+      password: process.env.CALIBRE_PASSWORD ?? "",
+    };
+  }
+  const saved = await connectionStore?.loadCalibre();
+  return saved ? { ...saved, source: "saved" } : null;
+}
+
+export function authHeaders(connection: {
+  user: string;
+  password: string;
+}): Record<string, string> {
+  if (!connection.user) return {};
+  const token = Buffer.from(
+    `${connection.user}:${connection.password}`,
+  ).toString("base64");
   return { Authorization: `Basic ${token}` };
 }
 
@@ -105,6 +126,30 @@ export function parseOpdsFeed(xml: string): CalibreBook[] {
   return books;
 }
 
+/** Fetch and parse one OPDS feed with the given connection. */
+export async function fetchShelf(
+  connection: CalibreConnection,
+  source: CalibreSource,
+): Promise<CalibreShelf> {
+  try {
+    const response = await fetch(`${connection.baseUrl}/opds/${source}`, {
+      headers: authHeaders(connection),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (response.status === 401 || response.status === 403) {
+      return { configured: true, error: "unauthorized" };
+    }
+    if (!response.ok) return { configured: true, error: "unreachable" };
+    return {
+      configured: true,
+      webUrl: connection.baseUrl,
+      books: parseOpdsFeed(await response.text()).slice(0, 8),
+    };
+  } catch {
+    return { configured: true, error: "unreachable" };
+  }
+}
+
 interface CacheEntry {
   shelf: CalibreShelf;
   expiresAt: number;
@@ -118,33 +163,13 @@ export function clearCalibreCache(): void {
 }
 
 export async function getShelf(source: CalibreSource): Promise<CalibreShelf> {
-  const env = calibreEnv();
-  if (!env.baseUrl) return { configured: false };
+  const connection = await resolveConnection();
+  if (!connection) return { configured: false };
 
   const cached = cache.get(source);
   if (cached && cached.expiresAt > Date.now()) return cached.shelf;
 
-  let shelf: CalibreShelf;
-  try {
-    const response = await fetch(`${env.baseUrl}/opds/${source}`, {
-      headers: authHeaders(env),
-      signal: AbortSignal.timeout(8000),
-    });
-    if (response.status === 401 || response.status === 403) {
-      shelf = { configured: true, error: "unauthorized" };
-    } else if (!response.ok) {
-      shelf = { configured: true, error: "unreachable" };
-    } else {
-      shelf = {
-        configured: true,
-        webUrl: env.baseUrl,
-        books: parseOpdsFeed(await response.text()).slice(0, 8),
-      };
-    }
-  } catch {
-    shelf = { configured: true, error: "unreachable" };
-  }
-
+  const shelf = await fetchShelf(connection, source);
   // Cache errors briefly too, so a down library doesn't get hammered.
   cache.set(source, {
     shelf,
@@ -157,11 +182,11 @@ export async function getShelf(source: CalibreSource): Promise<CalibreShelf> {
 export async function fetchCover(
   id: number,
 ): Promise<{ body: ArrayBuffer; contentType: string } | null> {
-  const env = calibreEnv();
-  if (!env.baseUrl) return null;
+  const connection = await resolveConnection();
+  if (!connection) return null;
   try {
-    const response = await fetch(`${env.baseUrl}/opds/cover/${id}`, {
-      headers: authHeaders(env),
+    const response = await fetch(`${connection.baseUrl}/opds/cover/${id}`, {
+      headers: authHeaders(connection),
       signal: AbortSignal.timeout(8000),
     });
     if (!response.ok) return null;

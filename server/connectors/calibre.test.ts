@@ -1,12 +1,19 @@
 // @vitest-environment node
+import { mkdtemp, rm, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { createConnectionStore } from "../connection-store.ts";
 import {
   authHeaders,
   clearCalibreCache,
+  fetchShelf,
   getShelf,
+  initCalibre,
   parseOpdsFeed,
+  resolveConnection,
 } from "./calibre.ts";
 
 /** Shape matches a real Calibre-Web /opds/new acquisition feed. */
@@ -64,16 +71,17 @@ describe("parseOpdsFeed", () => {
 });
 
 describe("authHeaders", () => {
-  it("builds basic auth from env values", () => {
+  it("builds basic auth from the connection", () => {
     expect(authHeaders({ user: "kyle", password: "secret" })).toEqual({
       Authorization: `Basic ${Buffer.from("kyle:secret").toString("base64")}`,
     });
-    expect(authHeaders({})).toEqual({});
+    expect(authHeaders({ user: "", password: "" })).toEqual({});
   });
 });
 
-describe("getShelf", () => {
+describe("connection resolution and shelf fetching", () => {
   const savedEnv = { ...process.env };
+  let dir: string;
   const server = createServer((req, res) => {
     if (req.headers.authorization !== `Basic ${Buffer.from("kyle:pw").toString("base64")}`) {
       res.statusCode = 401;
@@ -84,14 +92,20 @@ describe("getShelf", () => {
   });
 
   beforeAll(async () => {
+    dir = await mkdtemp(join(tmpdir(), "rackio-conn-"));
+    initCalibre(createConnectionStore(dir));
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   });
-  afterAll(() => {
+  afterAll(async () => {
     server.close();
     process.env = savedEnv;
+    await rm(dir, { recursive: true, force: true });
   });
   afterEach(() => {
     clearCalibreCache();
+    delete process.env.CALIBRE_BASE_URL;
+    delete process.env.CALIBRE_USER;
+    delete process.env.CALIBRE_PASSWORD;
   });
 
   function baseUrl(): string {
@@ -99,30 +113,49 @@ describe("getShelf", () => {
     return `http://127.0.0.1:${port}`;
   }
 
-  it("reports unconfigured when CALIBRE_BASE_URL is unset", async () => {
-    delete process.env.CALIBRE_BASE_URL;
+  it("reports unconfigured with no env and no saved connection", async () => {
     expect(await getShelf("new")).toEqual({ configured: false });
   });
 
-  it("reports unauthorized on bad credentials", async () => {
-    process.env.CALIBRE_BASE_URL = baseUrl();
-    process.env.CALIBRE_USER = "kyle";
-    process.env.CALIBRE_PASSWORD = "wrong";
-    expect((await getShelf("new")).error).toBe("unauthorized");
-  });
+  it("persists a UI-saved connection with 0600 perms and round-trips it", async () => {
+    const conn = { baseUrl: baseUrl(), user: "kyle", password: "pw" };
+    const store = createConnectionStore(dir);
+    await store.saveCalibre(conn);
+    const mode = (await stat(join(dir, "connections.json"))).mode & 0o777;
+    expect(mode).toBe(0o600);
+    expect(await resolveConnection()).toEqual({ ...conn, source: "saved" });
 
-  it("fetches and parses the shelf with good credentials", async () => {
-    process.env.CALIBRE_BASE_URL = baseUrl();
-    process.env.CALIBRE_USER = "kyle";
-    process.env.CALIBRE_PASSWORD = "pw";
     const shelf = await getShelf("new");
     expect(shelf.error).toBeUndefined();
-    expect(shelf.webUrl).toBe(baseUrl());
     expect(shelf.books?.[0].title).toBe("The Time Machine");
+
+    await store.clearCalibre();
+    expect(await resolveConnection()).toBeNull();
   });
 
-  it("reports unreachable for a dead host", async () => {
-    process.env.CALIBRE_BASE_URL = "http://127.0.0.1:1";
-    expect((await getShelf("new")).error).toBe("unreachable");
+  it("lets env vars override a saved connection", async () => {
+    const store = createConnectionStore(dir);
+    await store.saveCalibre({ baseUrl: "http://saved", user: "a", password: "b" });
+    process.env.CALIBRE_BASE_URL = "http://from-env/";
+    const resolved = await resolveConnection();
+    expect(resolved?.source).toBe("env");
+    expect(resolved?.baseUrl).toBe("http://from-env");
+    await store.clearCalibre();
+  });
+
+  it("fetchShelf reports unauthorized on bad credentials", async () => {
+    const shelf = await fetchShelf(
+      { baseUrl: baseUrl(), user: "kyle", password: "wrong" },
+      "new",
+    );
+    expect(shelf.error).toBe("unauthorized");
+  });
+
+  it("fetchShelf reports unreachable for a dead host", async () => {
+    const shelf = await fetchShelf(
+      { baseUrl: "http://127.0.0.1:1", user: "", password: "" },
+      "new",
+    );
+    expect(shelf.error).toBe("unreachable");
   });
 });
