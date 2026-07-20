@@ -70,3 +70,24 @@ export async function geocodeSearch(query: string): Promise<GeocodeMatch[]> {
   );
   return matches;
 }
+
+export interface CalibreBook {
+  id: number;
+  title: string;
+  author: string;
+}
+
+export interface CalibreShelf {
+  configured: boolean;
+  webUrl?: string;
+  books?: CalibreBook[];
+  error?: "unauthorized" | "unreachable";
+}
+
+export function fetchCalibreShelf(source: "new" | "hot"): Promise<CalibreShelf> {
+  return request<CalibreShelf>(`/api/calibre/books?source=${source}`);
+}
+
+export function calibreCoverUrl(id: number): string {
+  return `/api/calibre/cover/${id}`;
+}
