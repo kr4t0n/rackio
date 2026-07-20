@@ -3,9 +3,17 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { validateBoardState } from "../shared/board-schema.ts";
+import { fetchCover, getShelf } from "./connectors/calibre.ts";
 import { assertSafeTarget, probe } from "./connectors/ping.ts";
 import { geocode, getWeather } from "./connectors/weather.ts";
 import { createBoardStore } from "./store.ts";
+
+// Load .env if present (secrets like CALIBRE_* live there, never in git).
+try {
+  process.loadEnvFile();
+} catch {
+  // No .env file — environment comes from the process (Docker/k8s).
+}
 
 const isProduction = process.env.NODE_ENV === "production";
 const port = Number(process.env.PORT ?? 8787);
@@ -69,6 +77,24 @@ api.get("/geocode", async (c) => {
     console.warn("geocode failed:", error);
     return c.json({ error: "geocoding service unavailable" }, 502);
   }
+});
+
+api.get("/calibre/books", async (c) => {
+  const source = c.req.query("source") === "hot" ? "hot" : "new";
+  return c.json(await getShelf(source));
+});
+
+api.get("/calibre/cover/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  if (!Number.isInteger(id) || id < 0) {
+    return c.json({ error: "invalid cover id" }, 400);
+  }
+  const cover = await fetchCover(id);
+  if (!cover) return c.json({ error: "cover unavailable" }, 404);
+  return c.body(cover.body, 200, {
+    "Content-Type": cover.contentType,
+    "Cache-Control": "public, max-age=3600",
+  });
 });
 
 api.get("/ping", async (c) => {
