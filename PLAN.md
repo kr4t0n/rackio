@@ -161,10 +161,14 @@ board changes (demo pattern).
 *Acceptance*: layouts survive reload; footprint switch reflows neighbors correctly;
 settings open/save/cancel works from all three footprints.
 
-**M2 — Server + service tiles (first real value)**
-Hono server, `/api/board` (persistence moves server-side), service config in
-`.env`/server config, ping connector, generic service-tile card in all three
-footprints. Docker build. From here the board is genuinely useful for the rack.
+**M2 — Server + service tiles (first real value)** ✅ *(done 2026-07-20.
+Service URLs are card config edited in the UI rather than server config — the
+ping connector enforces private-address-only targets instead, which is both
+the SSRF guard and the product semantic. Board conflict resolution:
+`updatedAt` newer-wins between localStorage cache and server.)*
+Hono server, `/api/board` (persistence moves server-side), ping connector,
+generic service-tile card in all three footprints. Docker build. From here
+the board is genuinely useful for the rack.
 
 **M3 — Weather card**
 Port the demo's Three.js scene (sky/cloud/mist shaders, rain/snow particles) into a

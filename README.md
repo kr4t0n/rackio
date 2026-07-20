@@ -11,12 +11,14 @@ board that feels like a control surface: live weather rendered with WebGL,
 what you're reading in Calibre, whether Plex and Home Assistant are up — at a
 glance, arranged your way.
 
-**Status**: M1 (board engine) — the board is playable: edit mode, drag by
-handle on a square-cell 12-column grid, per-card footprint switching, an
-"Add card" catalog, per-card settings in a flip-to-center panel, and layout
-persistence (localStorage; server-side persistence lands in M2). Two card
-types so far: a clock and a configurable utility placeholder. See
-[PLAN.md](PLAN.md) for the full roadmap.
+**Status**: M2 (server + service tiles) — the board is playable and useful:
+edit mode, drag by handle on a square-cell 12-column grid, per-card footprint
+switching, an "Add card" catalog, per-card settings in a flip-to-center panel.
+The layout persists **server-side** (`data/board.json`), so it follows you
+across devices; localStorage is a warm cache with newer-wins conflict
+resolution. Card types: **service tile** (link + live health checks via the
+server's LAN-only probe), clock, and a utility placeholder. Docker packaging
+included. See [PLAN.md](PLAN.md) for the full roadmap.
 
 ## Prerequisites
 
@@ -64,7 +66,16 @@ Chromium build.
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PORT` | `8787` | API/production server port |
+| `HOST` | `0.0.0.0` | Bind address (all interfaces — rackio is a LAN app) |
+| `DATA_DIR` | `data` | Where `board.json` lives; mount a volume here in Docker/k8s |
 | `NODE_ENV` | — | `production` makes the server serve `dist/` |
+
+### API
+
+- `GET /api/health` — liveness
+- `GET /api/board` / `PUT /api/board` — board state (JSON file on disk)
+- `GET /api/ping?url=` — health probe for service tiles; refuses targets that
+  don't resolve to a private/LAN address (incl. the 100.64/10 tailnet range)
 
 Service integration secrets (Calibre-Web credentials, etc.) arrive with their
 milestones and will be documented in `.env.example` as they land. Secrets live
@@ -79,13 +90,20 @@ src/            React SPA
   cards/        card registry + one folder per card type (clock, utility)
   styles/       design tokens (oklch, dark/light) + Tailwind setup
 server/         Hono API server; serves dist/ in production
-shared/         types shared by SPA and server (footprints, board state)
+  connectors/   one file per integration (ping; weather and calibre to come)
+shared/         types + zod schemas shared by SPA and server
 scripts/        dev utilities (screenshots, board smoke test)
-data/           runtime state (gitignored; server-persisted board from M2)
+data/           runtime state (gitignored; board.json)
 ```
 
 ## Deployment
 
-Planned for M5: Docker image plus a Helm chart targeting a Kubernetes cluster
-(PVC-backed `/data`, secrets via values). Until then, `npm run build` +
-`npm run start` runs the whole app from one Node process.
+```bash
+docker build -t rackio .
+docker run -d -p 8787:8787 -v rackio-data:/app/data rackio
+# or: docker compose up -d
+```
+
+Bare-metal: `npm run build` + `npm run start` runs the whole app from one
+Node process. The final target is a Kubernetes cluster via a Helm chart (M5,
+PVC-backed `/app/data`, secrets via values).

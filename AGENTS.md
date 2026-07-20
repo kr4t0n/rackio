@@ -19,22 +19,26 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
     catalog, settings, mobile stacked fallback); `BoardGrid.tsx` wraps
     react-grid-layout v2; `CardFrame.tsx` renders the card shell + edit
     affordances; `SettingsOverlay.tsx` is the flip-to-center settings panel;
-    `state.ts` is a pure reducer + zod-validated persistence
-    (`useBoardState.ts` adds localStorage; the storage layer moves server-side
-    in M2).
+    `state.ts` is a pure reducer; `useBoardState.ts` persists — the server
+    (`/api/board`) is the source of truth, localStorage is a warm cache, and
+    hydration keeps whichever side has the newer `updatedAt` (see gotchas).
   - `src/cards/` — card registry + one folder per card type. Cards implement
     the `CardDefinition` contract in `registry.tsx` (Component + Settings +
     zod config schema + supported footprints); the board never knows card
-    internals. Current types: `clock`, `utility`.
+    internals. Current types: `service-tile`, `clock`, `utility`.
+  - `src/lib/api.ts` — typed client for `/api`; TanStack Query handles
+    polling (service tile pings every 30s).
   - `src/styles/tokens.css` — the design system. All theme-varying values are
     CSS custom properties on `:root` / `html[data-theme="light"]`, mapped to
     Tailwind utilities via `@theme inline`. Dark is the default theme.
-- `server/` — Hono app run by `tsx` (no build step). Serves `/api`; in
-  production also serves `dist/`. Connectors (one file per integration) land
-  in `server/connectors/` from M2.
-- `shared/` — types used by both sides (`Footprint`, `CardInstance`,
-  `BoardState`). Import via relative path with explicit `.ts` extension (see
-  gotchas).
+- `server/` — Hono app run by `tsx` (no build step; note `tsx` is a *runtime*
+  dependency for this reason). Serves `/api`; in production also serves
+  `dist/`. `store.ts` persists `board.json` (atomic temp-file + rename,
+  serialized writes). `connectors/` holds one file per integration —
+  `ping.ts` so far.
+- `shared/` — types + zod schemas used by both sides (`Footprint`,
+  `CardInstance`, `BoardState`, `board-schema.ts`). Import via relative path
+  with explicit `.ts` extension (see gotchas).
 
 ## Key decisions (abbreviated — rationale in PLAN.md)
 
@@ -86,6 +90,24 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
 - **Pixel positions shift between edit and view mode** (the board-head hint
   text wraps differently) — compare stored board JSON, not bounding boxes,
   when asserting persistence.
+- **Board conflict resolution is `updatedAt` newer-wins** (`useBoardState`):
+  the debounced PUT can lose a race with the next page load's GET (observed
+  on localhost — the reload GET beat the pagehide keepalive PUT, resurrecting
+  a removed card). Every reducer mutation stamps `updatedAt`; hydration keeps
+  the fresher of cache vs server. Don't "simplify" this to server-always-wins.
+- **`/api/ping` only probes private addresses** (RFC1918, loopback,
+  link-local, CGNAT 100.64/10 for the tailnet, private IPv6) — resolves the
+  hostname first, then checks the IP. This is both the product semantic
+  (rackio watches *local* services) and the SSRF guard; don't widen it.
+  Any HTTP status < 500 counts as "up" (a 401 from Home Assistant means it's
+  alive).
+- **The smoke test resets state**: it clears localStorage AND PUTs a fixture
+  board to `/api/board`. Never point it at a server whose board you care
+  about — use a scratch `DATA_DIR`.
+- **`pkill -f 'server/index.ts'` kills your own compound command** if the
+  pattern appears anywhere in it (bash -c argv matches). Use
+  `pkill -f 'server/index[.]ts'` in a Bash call that doesn't also spawn the
+  server.
 - **tsconfig layout**: three referenced projects (`app`, `node` for
   vite/eslint configs, `server`), all `noEmit` — nothing is compiled to JS;
   `tsx` runs the server directly. `shared/` is included by both `app` and
@@ -112,9 +134,9 @@ polish is high — compare against the reference design in `.argus/uploads/`.
 
 - Card drag is pointer-only; keyboard move actions (via card menu) are a
   planned follow-up.
-- Board persistence is localStorage until `/api/board` lands in M2.
 - "Reset board" from the reference design was deliberately dropped (Kyle:
   demo-only affordance) — don't reintroduce it.
-- Server has no tests yet (meaningful once `/api/board` lands in M2).
-- `start` script runs TS via `tsx` in production; fine for homelab scale,
-  revisit for a leaner image in M5.
+- Service-tile icons are auto-monograms; real service icons (or a picker)
+  could come later.
+- `start`/Docker run TS via `tsx` in production; fine for homelab scale,
+  revisit for a leaner compiled image in M5.
