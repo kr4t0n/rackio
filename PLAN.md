@@ -68,13 +68,38 @@ Per global standards: **TypeScript + React + Tailwind + Vite + ESLint (flat conf
 | Motion | framer-motion | flip-to-center settings transition, edit-mode affordance animations; respects reduced-motion |
 | Validation | zod | card config schemas, API payloads |
 | Backend | **Hono** on Node | one small server: serves built SPA + `/api`; tiny, typed, fast |
-| Persistence | JSON file on server (`data/board.json`) | single-user homelab; survives browsers/devices; no DB needed |
+| Persistence | JSON file on server (`data/board.json`) | single-user homelab; survives browsers/devices; no DB needed — see the storage decision below |
 | Testing | Vitest (+ RTL), Playwright later if needed | |
 | Deploy | Docker multi-stage image; **Helm chart** for the final target (Kyle's k8s cluster); compose example for quick runs | one image serves both |
 
 Why a backend at all: service integrations (Calibre-Web credentials, health pings to
 LAN hosts, API caching) can't live in the browser — CORS and secrets. The server is
 the single place that talks to rack services; the SPA only talks to `/api`.
+
+### Storage decision: no database (decided 2026-07-20 with Kyle)
+
+Considered introducing Postgres for card/position data ahead of more cards.
+**Decision: no.** The board is a few KB, read/written as a whole document, with no
+server-side queries, no relations, and one writer in practice — a pattern JSON files
+serve perfectly. Atomicity (temp-file + rename, serialized writes) and conflict
+resolution (`updatedAt` newer-wins, which is app-level logic a DB wouldn't replace)
+already exist. On the cluster, Postgres would add a StatefulSet/operator, secret
+plumbing, migrations, and backup jobs — real operational surface for zero query
+value, and a new way for the dashboard to be down.
+
+Storage stays behind the `BoardStore` / `ConnectionStore` interfaces, so upgrading
+later is a one-file swap, not a rewrite. The escalation ladder:
+
+1. **JSON on the data volume** (now, through M5) — backup is copying a file.
+2. **SQLite** — when genuine row-shaped data arrives: history/time-series features
+   (service-tile uptime graphs, weather trends), multiple boards, or board undo.
+   Still one file on the same PVC, transactional, zero new infrastructure.
+3. **Postgres** — only if rackio ever runs multiple replicas (shared mutable state)
+   or becomes genuinely multi-user. Neither is planned; a single-replica dashboard
+   that restarts in seconds does not need HA.
+
+Rule for new cards: don't add per-card storage ad hoc — live data stays in memory
+caches or `data/` files (like covers), and anything row-shaped triggers rung 2.
 
 ## 3. Architecture
 

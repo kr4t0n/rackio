@@ -52,6 +52,16 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
 - **Card settings** open via flip-to-center: overlay portal + framer-motion,
   never an in-grid flip (transform conflicts, 2×2 too cramped).
 - **Persistence** is a JSON file on the server (single user, no DB).
+- **No database — decided deliberately with Kyle (2026-07-20), don't
+  reintroduce the idea per-card.** The board is KB-scale, whole-document
+  read/write, zero server-side queries; a DB adds cluster ops (StatefulSet,
+  secrets, migrations, backups) for no query value. Storage hides behind
+  `BoardStore`/`ConnectionStore`, so upgrading is a one-file swap when — and
+  only when — a rung on the ladder is reached: **JSON file → SQLite** (first
+  row-shaped feature: uptime/weather history, multiple boards, undo) **→
+  Postgres** (only for multi-replica or true multi-user, neither planned).
+  New cards keep live data in memory caches or `data/` files (see covers);
+  anything row-shaped means the SQLite rung, not an ad-hoc store.
 - **Deployment target** is a k8s cluster via Helm (M5); Docker is packaging.
 
 ## Conventions
