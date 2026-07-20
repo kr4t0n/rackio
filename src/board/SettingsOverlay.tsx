@@ -123,14 +123,23 @@ function SettingsPanel({
         animate={
           reducedMotion ? undefined : { x: 0, y: 0, scale: 1, rotateY: 0 }
         }
-        exit={
-          reducedMotion
-            ? undefined
-            : {
-                ...cardOffset,
-                transition: { type: "spring", duration: 0.5, bounce: 0 },
-              }
-        }
+        exit={reducedMotion ? undefined : "flipBackToCard"}
+        variants={{
+          // Resolved at exit time, when the panel is measurable: squash to the
+          // card's exact rectangle (matters for wide cards, whose silhouette
+          // is far from the panel's) instead of scaling uniformly.
+          flipBackToCard: () => ({
+            x: cardOffset.x,
+            y: cardOffset.y,
+            scaleX:
+              originRect.width / (panelRef.current?.offsetWidth ?? PANEL_WIDTH),
+            scaleY:
+              originRect.height /
+              (panelRef.current?.offsetHeight ?? PANEL_WIDTH),
+            rotateY: -180,
+            transition: { type: "spring", duration: 0.5, bounce: 0 },
+          }),
+        }}
         transition={{ type: "spring", duration: 0.55, bounce: 0.16 }}
       >
         {/* Card back — visible during the first half of the flip. */}
