@@ -34,3 +34,39 @@ export async function saveBoard(board: BoardState): Promise<void> {
 export function pingService(url: string): Promise<PingResult> {
   return request<PingResult>(`/api/ping?url=${encodeURIComponent(url)}`);
 }
+
+export type SceneMode = "clear" | "cloudy" | "rain" | "storm" | "snow";
+
+export interface WeatherReport {
+  sceneMode: SceneMode;
+  condition: string;
+  temperature: number;
+  feelsLike: number;
+  high: number;
+  low: number;
+  windKmh: number;
+  humidity: number;
+  precipChance: number;
+  visibilityKm: number;
+  isDay: boolean;
+  updatedAt: number;
+}
+
+export function fetchWeather(lat: number, lon: number): Promise<WeatherReport> {
+  return request<WeatherReport>(`/api/weather?lat=${lat}&lon=${lon}`);
+}
+
+export interface GeocodeMatch {
+  name: string;
+  region: string;
+  country: string;
+  lat: number;
+  lon: number;
+}
+
+export async function geocodeSearch(query: string): Promise<GeocodeMatch[]> {
+  const { matches } = await request<{ matches: GeocodeMatch[] }>(
+    `/api/geocode?q=${encodeURIComponent(query)}`,
+  );
+  return matches;
+}
