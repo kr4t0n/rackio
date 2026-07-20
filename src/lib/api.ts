@@ -91,3 +91,36 @@ export function fetchCalibreShelf(source: "new" | "hot"): Promise<CalibreShelf> 
 export function calibreCoverUrl(id: number): string {
   return `/api/calibre/cover/${id}`;
 }
+
+export interface CalibreConnectionStatus {
+  configured: boolean;
+  source?: "env" | "saved";
+  baseUrl?: string;
+  user?: string;
+}
+
+export function fetchCalibreConnection(): Promise<CalibreConnectionStatus> {
+  return request<CalibreConnectionStatus>("/api/calibre/connection");
+}
+
+export interface ConnectResult {
+  ok: boolean;
+  books?: number;
+  error?: "unauthorized" | "unreachable";
+}
+
+export function saveCalibreConnection(connection: {
+  baseUrl: string;
+  user: string;
+  password: string;
+}): Promise<ConnectResult> {
+  return request<ConnectResult>("/api/calibre/connection", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(connection),
+  });
+}
+
+export function clearCalibreConnection(): Promise<void> {
+  return request("/api/calibre/connection", { method: "DELETE" });
+}

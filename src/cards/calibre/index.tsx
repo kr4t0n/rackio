@@ -1,8 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { z } from "zod";
 import { ExternalLinkIcon } from "@/app/icons";
+import { Field, TextInput } from "@/board/settings-fields";
 import type { CalibreBook, CalibreShelf } from "@/lib/api";
-import { calibreCoverUrl, fetchCalibreShelf } from "@/lib/api";
+import {
+  calibreCoverUrl,
+  clearCalibreConnection,
+  fetchCalibreConnection,
+  fetchCalibreShelf,
+  saveCalibreConnection,
+} from "@/lib/api";
 import type {
   CardComponentProps,
   CardDefinition,
@@ -72,10 +80,10 @@ function EmptyState({ shelf }: { shelf?: CalibreShelf }) {
     : !shelf.configured
       ? [
           "Not connected",
-          "Set CALIBRE_BASE_URL, CALIBRE_USER, and CALIBRE_PASSWORD in the server's .env.",
+          "Open this card's settings (edit mode → gear) to connect Calibre-Web.",
         ]
       : shelf.error === "unauthorized"
-        ? ["Sign-in failed", "Check CALIBRE_USER / CALIBRE_PASSWORD."]
+        ? ["Sign-in failed", "Update the credentials in this card's settings."]
         : shelf.error === "unreachable"
           ? ["Library unreachable", "Calibre-Web didn't answer — is it up?"]
           : ["No books yet", "Add books to the library to see them here."];
@@ -288,24 +296,130 @@ function CalibreCard({ config, footprint }: CardComponentProps<CalibreConfig>) {
   );
 }
 
-function CalibreSettings({ draft, onChange }: CardSettingsProps<CalibreConfig>) {
-  const query = useShelf(draft.source);
-  const shelf = query.data;
-  const status = !shelf
-    ? "Checking connection…"
-    : !shelf.configured
-      ? "Not connected — set CALIBRE_BASE_URL / CALIBRE_USER / CALIBRE_PASSWORD in the server's .env."
-      : shelf.error === "unauthorized"
-        ? "Credentials rejected — check CALIBRE_USER / CALIBRE_PASSWORD."
-        : shelf.error === "unreachable"
-          ? "Library unreachable."
-          : `Connected · ${shelf.books?.length ?? 0} books in this feed.`;
+function ConnectionForm() {
+  const queryClient = useQueryClient();
+  const connection = useQuery({
+    queryKey: ["calibre-connection"],
+    queryFn: fetchCalibreConnection,
+    staleTime: 60_000,
+  });
+  const [baseUrl, setBaseUrl] = useState("");
+  const [user, setUser] = useState("");
+  const [password, setPassword] = useState("");
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["calibre-connection"] });
+    queryClient.invalidateQueries({ queryKey: ["calibre"] });
+  };
+
+  const connect = useMutation({
+    mutationFn: saveCalibreConnection,
+    onSuccess: (result) => {
+      if (result.ok) {
+        setPassword("");
+        invalidate();
+      }
+    },
+  });
+  const disconnect = useMutation({
+    mutationFn: clearCalibreConnection,
+    onSuccess: invalidate,
+  });
+
+  const status = connection.data;
+
+  if (status?.source === "env") {
+    return (
+      <div className="rounded-xl border border-border bg-bg px-3.5 py-3 text-xs leading-[1.5] text-muted">
+        Connected to <span className="text-fg">{status.baseUrl}</span> — managed
+        by the server environment (CALIBRE_* variables).
+      </div>
+    );
+  }
+
+  if (status?.configured) {
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-bg px-3.5 py-3">
+        <div className="min-w-0 text-xs leading-[1.5] text-muted">
+          Connected to <span className="break-all text-fg">{status.baseUrl}</span>
+          {status.user ? <> as {status.user}</> : null}.
+        </div>
+        <button
+          type="button"
+          onClick={() => disconnect.mutate()}
+          className="min-h-9 shrink-0 cursor-pointer rounded-lg border border-border px-3 text-[12px] font-[550] text-muted transition-colors hover:text-danger"
+        >
+          Disconnect
+        </button>
+      </div>
+    );
+  }
+
+  const failure = connect.data?.ok === false ? connect.data.error : null;
+  const submitting = connect.isPending;
 
   return (
+    <div className="flex flex-col gap-3 rounded-xl border border-border bg-bg p-3.5">
+      <p className="m-0 text-xs leading-[1.5] text-muted">
+        Connect your Calibre-Web. Credentials are checked against the library,
+        then stored on the rackio server — never in the board.
+      </p>
+      <Field label="Server URL">
+        {(id) => (
+          <TextInput
+            id={id}
+            value={baseUrl}
+            placeholder="https://books.example.com"
+            onChange={(e) => setBaseUrl(e.target.value)}
+          />
+        )}
+      </Field>
+      <Field label="Username">
+        {(id) => (
+          <TextInput id={id} value={user} onChange={(e) => setUser(e.target.value)} />
+        )}
+      </Field>
+      <Field label="Password">
+        {(id) => (
+          <TextInput
+            id={id}
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        )}
+      </Field>
+      {failure ? (
+        <p className="m-0 text-xs text-danger">
+          {failure === "unauthorized"
+            ? "Calibre-Web rejected those credentials."
+            : "Couldn't reach that server — check the URL."}
+        </p>
+      ) : connect.isError ? (
+        <p className="m-0 text-xs text-danger">Connection check failed — try again.</p>
+      ) : connect.data?.ok ? (
+        <p className="m-0 text-xs text-success">
+          Connected · {connect.data.books} books found.
+        </p>
+      ) : null}
+      <button
+        type="button"
+        disabled={submitting || !baseUrl.trim() || !user.trim()}
+        onClick={() =>
+          connect.mutate({ baseUrl: baseUrl.trim(), user: user.trim(), password })
+        }
+        className="min-h-10 cursor-pointer rounded-xl border border-transparent bg-fg px-4 text-[13px] font-[550] tracking-[0.02em] text-bg transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-40"
+      >
+        {submitting ? "Connecting…" : "Connect"}
+      </button>
+    </div>
+  );
+}
+
+function CalibreSettings({ draft, onChange }: CardSettingsProps<CalibreConfig>) {
+  return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-xl border border-border bg-bg px-3.5 py-3 text-xs leading-[1.5] text-muted">
-        {status}
-      </div>
+      <ConnectionForm />
       <div>
         <p className="m-0 mb-1.5 text-[11px] font-semibold tracking-[0.08em] uppercase text-muted">
           Featured shelf
