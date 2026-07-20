@@ -11,14 +11,16 @@ board that feels like a control surface: live weather rendered with WebGL,
 what you're reading in Calibre, whether Plex and Home Assistant are up — at a
 glance, arranged your way.
 
-**Status**: M2 (server + service tiles) — the board is playable and useful:
-edit mode, drag by handle on a square-cell 12-column grid, per-card footprint
-switching, an "Add card" catalog, per-card settings in a flip-to-center panel.
-The layout persists **server-side** (`data/board.json`), so it follows you
-across devices; localStorage is a warm cache with newer-wins conflict
-resolution. Card types: **service tile** (link + live health checks via the
-server's LAN-only probe), clock, and a utility placeholder. Docker packaging
-included. See [PLAN.md](PLAN.md) for the full roadmap.
+**Status**: M3 (weather card) — the board is playable and useful: edit mode,
+drag by handle on a square-cell 12-column grid, per-card footprint switching,
+an "Add card" catalog, per-card settings in a flip-to-center panel. The
+layout persists **server-side** (`data/board.json`) with newer-wins conflict
+resolution against the localStorage cache. Card types: **weather** (live
+Open-Meteo conditions rendered as an animated WebGL sky — shader clouds,
+rain, snow, storm lightning — with a location picker in settings),
+**service tile** (link + live health checks via the server's LAN-only probe),
+clock, and a utility placeholder. Docker packaging included. See
+[PLAN.md](PLAN.md) for the full roadmap.
 
 ## Prerequisites
 
@@ -76,6 +78,8 @@ Chromium build.
 - `GET /api/board` / `PUT /api/board` — board state (JSON file on disk)
 - `GET /api/ping?url=` — health probe for service tiles; refuses targets that
   don't resolve to a private/LAN address (incl. the 100.64/10 tailnet range)
+- `GET /api/weather?lat=&lon=` — Open-Meteo proxy, cached 10 min per location
+- `GET /api/geocode?q=` — Open-Meteo place search for the weather card
 
 Service integration secrets (Calibre-Web credentials, etc.) arrive with their
 milestones and will be documented in `.env.example` as they land. Secrets live

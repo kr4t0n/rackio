@@ -170,7 +170,10 @@ Hono server, `/api/board` (persistence moves server-side), ping connector,
 generic service-tile card in all three footprints. Docker build. From here
 the board is genuinely useful for the rack.
 
-**M3 — Weather card**
+**M3 — Weather card** ✅ *(done 2026-07-20. Scene ported verbatim except one
+GLSL fix — `active` is reserved in WebGL2. Added a fifth `cloudy` scene mode
+for overcast/fog. three.js is code-split out of the main bundle;
+`maxInstances: 1` caps WebGL contexts via the catalog.)*
 Port the demo's Three.js scene (sky/cloud/mist shaders, rain/snow particles) into a
 React-managed lifecycle. Open-Meteo connector for live data; location picker
 (geocoding search) on the settings back face. Reduced-motion + WebGL-unavailable

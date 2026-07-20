@@ -24,8 +24,13 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
     hydration keeps whichever side has the newer `updatedAt` (see gotchas).
   - `src/cards/` — card registry + one folder per card type. Cards implement
     the `CardDefinition` contract in `registry.tsx` (Component + Settings +
-    zod config schema + supported footprints); the board never knows card
-    internals. Current types: `service-tile`, `clock`, `utility`.
+    zod config schema + supported footprints + optional `maxInstances`); the
+    board never knows card internals. Current types: `weather`,
+    `service-tile`, `clock`, `utility`.
+  - `src/cards/weather/scene/` — the three.js sky: `shaders.ts` (GLSL ported
+    from the reference design), `engine.ts` (plain TS class: renderer, cloud
+    planes, rain/snow particles), `WeatherScene.tsx` (React lifecycle +
+    gradient fallback). Lazy-loaded so three.js stays out of the main bundle.
   - `src/lib/api.ts` — typed client for `/api`; TanStack Query handles
     polling (service tile pings every 30s).
   - `src/styles/tokens.css` — the design system. All theme-varying values are
@@ -104,6 +109,17 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
 - **The smoke test resets state**: it clears localStorage AND PUTs a fixture
   board to `/api/board`. Never point it at a server whose board you care
   about — use a scratch `DATA_DIR`.
+- **GLSL ES 3.0 reserves words that GLSL ES 1.0 didn't** — three.js r163+ is
+  WebGL2-only, so shaders that ran in the WebGL1 demo can fail now (`active`
+  bit us; also reserved: `filter`, `sample`, `buffer`, `precise`). A shader
+  compile failure logs to console and renders black — check the browser
+  console, not just the screenshot.
+- **Weather card is capped at one instance** (`maxInstances: 1`) because each
+  scene owns a WebGL context (browsers allow ~8-16 per page). The catalog
+  disables Add at the cap. A shared-renderer refactor would lift this.
+- **`sceneMode: "cloudy"` reuses the rain palette without particles** — the
+  reference design had four scenes; overcast/fog map onto the rain look with
+  `rain.visible = false` (see `MODE_UNIFORM` in engine.ts).
 - **`pkill -f 'server/index.ts'` kills your own compound command** if the
   pattern appears anywhere in it (bash -c argv matches). Use
   `pkill -f 'server/index[.]ts'` in a Bash call that doesn't also spawn the
