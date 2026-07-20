@@ -8,10 +8,12 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createConnectionStore } from "../connection-store.ts";
 import {
   authHeaders,
+  baseUrlCandidates,
   clearCalibreCache,
   fetchShelf,
   getShelf,
   initCalibre,
+  parseOpdsDocument,
   parseOpdsFeed,
   resolveConnection,
 } from "./calibre.ts";
@@ -67,6 +69,50 @@ describe("parseOpdsFeed", () => {
     expect(
       parseOpdsFeed(`<?xml version="1.0"?><feed><title>Empty</title></feed>`),
     ).toEqual([]);
+  });
+});
+
+describe("parseOpdsDocument", () => {
+  it("accepts a real feed", () => {
+    expect(parseOpdsDocument(FEED).valid).toBe(true);
+  });
+
+  it("rejects an HTML login page served with HTTP 200", () => {
+    const html = `<!DOCTYPE html><html><body><form action="/login">…</form></body></html>`;
+    expect(parseOpdsDocument(html).valid).toBe(false);
+  });
+
+  it("accepts a valid but empty feed", () => {
+    const result = parseOpdsDocument(
+      `<?xml version="1.0"?><feed><title>Empty</title></feed>`,
+    );
+    expect(result.valid).toBe(true);
+    expect(result.books).toEqual([]);
+  });
+});
+
+describe("baseUrlCandidates", () => {
+  it("strips login paths and query strings from address-bar pastes", () => {
+    expect(baseUrlCandidates("https://book.example.com/login?next=%2F")).toEqual(
+      ["https://book.example.com"],
+    );
+  });
+
+  it("strips a pasted /opds path", () => {
+    expect(baseUrlCandidates("https://book.example.com/opds/new")).toEqual([
+      "https://book.example.com",
+    ]);
+  });
+
+  it("keeps sub-path mounts, with the origin as fallback", () => {
+    expect(baseUrlCandidates("https://nas.lan/calibre/")).toEqual([
+      "https://nas.lan/calibre",
+      "https://nas.lan",
+    ]);
+  });
+
+  it("returns empty for garbage", () => {
+    expect(baseUrlCandidates("not a url")).toEqual([]);
   });
 });
 

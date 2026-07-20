@@ -27,7 +27,7 @@ export interface CalibreShelf {
   /** Public base URL for deep links into the Calibre-Web UI. */
   webUrl?: string;
   books?: CalibreBook[];
-  error?: "unauthorized" | "unreachable";
+  error?: "unauthorized" | "unreachable" | "not-opds";
 }
 
 let connectionStore: ConnectionStore | null = null;
@@ -91,6 +91,49 @@ function textOf(value: unknown): string {
   return "";
 }
 
+/**
+ * Parse a Calibre-Web OPDS acquisition feed. `valid` distinguishes a real
+ * (possibly empty) Atom feed from arbitrary HTML — e.g. the login page that
+ * comes back with HTTP 200 when the base URL is wrong.
+ */
+export function parseOpdsDocument(xml: string): {
+  valid: boolean;
+  books: CalibreBook[];
+} {
+  let doc: { feed?: { entry?: unknown } };
+  try {
+    doc = parser.parse(xml) as { feed?: { entry?: unknown } };
+  } catch {
+    return { valid: false, books: [] };
+  }
+  if (!doc.feed || typeof doc.feed !== "object") {
+    return { valid: false, books: [] };
+  }
+  return { valid: true, books: parseOpdsFeed(xml) };
+}
+
+/**
+ * Candidate base URLs for whatever the user pasted, most specific first.
+ * Handles address-bar pastes (login pages, query strings, /opds itself)
+ * while preserving genuine sub-path mounts like https://nas.lan/calibre.
+ */
+export function baseUrlCandidates(raw: string): string[] {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return [];
+  }
+  let path = url.pathname
+    .replace(/\/+$/, "")
+    .replace(/\/(login|logout|register)$/, "")
+    .replace(/\/opds(\/.*)?$/, "");
+  path = path.replace(/\/+$/, "");
+  const candidates = [`${url.origin}${path}`];
+  if (path) candidates.push(url.origin);
+  return candidates;
+}
+
 /** Parse a Calibre-Web OPDS acquisition feed into a book list. */
 export function parseOpdsFeed(xml: string): CalibreBook[] {
   const doc = parser.parse(xml) as {
@@ -140,10 +183,12 @@ export async function fetchShelf(
       return { configured: true, error: "unauthorized" };
     }
     if (!response.ok) return { configured: true, error: "unreachable" };
+    const document = parseOpdsDocument(await response.text());
+    if (!document.valid) return { configured: true, error: "not-opds" };
     return {
       configured: true,
       webUrl: connection.baseUrl,
-      books: parseOpdsFeed(await response.text()).slice(0, 8),
+      books: document.books.slice(0, 8),
     };
   } catch {
     return { configured: true, error: "unreachable" };

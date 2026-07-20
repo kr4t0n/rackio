@@ -86,7 +86,9 @@ function EmptyState({ shelf }: { shelf?: CalibreShelf }) {
         ? ["Sign-in failed", "Update the credentials in this card's settings."]
         : shelf.error === "unreachable"
           ? ["Library unreachable", "Calibre-Web didn't answer — is it up?"]
-          : ["No books yet", "Add books to the library to see them here."];
+          : shelf.error === "not-opds"
+            ? ["Wrong address", "That URL isn't a Calibre-Web catalog — reconnect in settings."]
+            : ["No books yet", "Add books to the library to see them here."];
   return (
     <div className="flex h-full min-h-0 flex-col justify-end">
       <p className="m-0 text-[17px] leading-[1.2] tracking-[-0.02em]">{state}</p>
@@ -393,7 +395,9 @@ function ConnectionForm() {
         <p className="m-0 text-xs text-danger">
           {failure === "unauthorized"
             ? "Calibre-Web rejected those credentials."
-            : "Couldn't reach that server — check the URL."}
+            : failure === "not-opds"
+              ? "That URL answered, but not with a Calibre-Web catalog — check the address."
+              : "Couldn't reach that server — check the URL."}
         </p>
       ) : connect.isError ? (
         <p className="m-0 text-xs text-danger">Connection check failed — try again.</p>

@@ -146,6 +146,15 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   header. Kyle's instance: https://book.kubitnodes.com.
   `scripts/verify-connect.mjs` drives the whole flow headlessly against the
   authed mock (`MOCK_USER=… MOCK_PASSWORD=… node scripts/mock-calibre.mjs`).
+- **Users paste address-bar URLs** — Kyle's first connect saved
+  `…/login?next=%2F` as the base URL, and Calibre-Web answered feed requests
+  under it with the login page (HTTP 200 + HTML), which passed the original
+  "no error status" validation with zero books. Connection PUT now walks
+  `baseUrlCandidates()` (strips query/login/opds paths, falls back to
+  origin, preserves sub-path mounts) and requires `parseOpdsDocument` to see
+  a real Atom feed; a 200 that isn't a feed is `error: "not-opds"`. Any
+  future connector validation should assert on parsed content, not status
+  codes.
 - **`scripts/mock-calibre.mjs`** fakes the OPDS catalog (books + SVG covers,
   optional basic auth) — use it with `CALIBRE_BASE_URL=http://localhost:8093`
   to develop the card without touching the real library.

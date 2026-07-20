@@ -81,7 +81,7 @@ export interface CalibreShelf {
   configured: boolean;
   webUrl?: string;
   books?: CalibreBook[];
-  error?: "unauthorized" | "unreachable";
+  error?: "unauthorized" | "unreachable" | "not-opds";
 }
 
 export function fetchCalibreShelf(source: "new" | "hot"): Promise<CalibreShelf> {
@@ -106,7 +106,7 @@ export function fetchCalibreConnection(): Promise<CalibreConnectionStatus> {
 export interface ConnectResult {
   ok: boolean;
   books?: number;
-  error?: "unauthorized" | "unreachable";
+  error?: "unauthorized" | "unreachable" | "not-opds";
 }
 
 export function saveCalibreConnection(connection: {

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { validateBoardState } from "../shared/board-schema.ts";
 import { createConnectionStore } from "./connection-store.ts";
 import {
+  baseUrlCandidates,
   clearCalibreCache,
   fetchCover,
   fetchShelf,
@@ -133,17 +134,28 @@ api.put("/calibre/connection", async (c) => {
   }
   const parsed = calibreConnectionSchema.safeParse(body);
   if (!parsed.success) return c.json({ error: "invalid connection details" }, 400);
-  const candidate = {
-    ...parsed.data,
-    baseUrl: parsed.data.baseUrl.replace(/\/+$/, ""),
-  };
-  const shelf = await fetchShelf(candidate, "new");
-  if (shelf.error) {
-    return c.json({ ok: false, error: shelf.error });
+
+  // People paste whatever their address bar shows (login pages, /opds, query
+  // strings) — try normalized candidates and save the first that serves a
+  // real OPDS feed with these credentials.
+  let lastError: "unauthorized" | "unreachable" | "not-opds" = "unreachable";
+  for (const baseUrl of baseUrlCandidates(parsed.data.baseUrl)) {
+    const candidate = { ...parsed.data, baseUrl };
+    const shelf = await fetchShelf(candidate, "new");
+    if (!shelf.error) {
+      await connections.saveCalibre(candidate);
+      clearCalibreCache();
+      return c.json({ ok: true, books: shelf.books?.length ?? 0 });
+    }
+    // Unauthorized beats not-opds beats unreachable as the reported reason.
+    if (
+      shelf.error === "unauthorized" ||
+      (shelf.error === "not-opds" && lastError === "unreachable")
+    ) {
+      lastError = shelf.error;
+    }
   }
-  await connections.saveCalibre(candidate);
-  clearCalibreCache();
-  return c.json({ ok: true, books: shelf.books?.length ?? 0 });
+  return c.json({ ok: false, error: lastError });
 });
 
 api.delete("/calibre/connection", async (c) => {
