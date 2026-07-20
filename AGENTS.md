@@ -109,6 +109,18 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
 - **The smoke test resets state**: it clears localStorage AND PUTs a fixture
   board to `/api/board`. Never point it at a server whose board you care
   about — use a scratch `DATA_DIR`.
+- **Rackio is used from insecure origins** — Kyle visits over plain HTTP on
+  the tailnet IP, where `window.isSecureContext` is false and APIs like
+  `crypto.randomUUID`, `navigator.clipboard`, and Web Crypto are missing.
+  "Add card" was silently broken this way (localhost tests never catch it —
+  localhost IS a secure context). Use `generateCardId()` from
+  `src/board/state.ts`, never `crypto.randomUUID` directly, and when
+  verifying UI flows headlessly, run at least one pass with
+  `BASE_URL=http://100.90.0.0:<port>`.
+- **Hydration must not echo-save**: `useBoardState` skips the server PUT when
+  the state object is the very board the server just returned
+  (`serverBoardRef` identity check). Without it every page load re-PUTs the
+  board and the pagehide flush can clobber concurrent writers.
 - **GLSL ES 3.0 reserves words that GLSL ES 1.0 didn't** — three.js r163+ is
   WebGL2-only, so shaders that ran in the WebGL1 demo can fail now (`active`
   bit us; also reserved: `filter`, `sample`, `buffer`, `precise`). A shader

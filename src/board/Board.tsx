@@ -9,7 +9,7 @@ import { CardFrame } from "./CardFrame";
 import { CatalogDrawer } from "./CatalogDrawer";
 import type { SettingsTarget } from "./SettingsOverlay";
 import { SettingsOverlay } from "./SettingsOverlay";
-import { nextFreeRow } from "./state";
+import { generateCardId, nextFreeRow } from "./state";
 import { useBoardState } from "./useBoardState";
 
 function useIsMobile(): boolean {
@@ -47,7 +47,7 @@ export function Board() {
       dispatch({
         kind: "add",
         card: {
-          id: crypto.randomUUID(),
+          id: generateCardId(),
           type,
           footprint: definition.defaultFootprint,
           x: 0,

@@ -130,6 +130,22 @@ export function boardReducer(
   }
 }
 
+/**
+ * Card instance IDs. crypto.randomUUID only exists in secure contexts, and
+ * rackio is typically served over plain HTTP on a LAN/tailnet IP — so fall
+ * back to a timestamp+random ID (uniqueness only needs to be board-local).
+ */
+export function generateCardId(): string {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+  const random = Math.random().toString(36).slice(2, 10);
+  return `card-${Date.now().toString(36)}-${random}`;
+}
+
 /** Row below the lowest card — where newly added cards start before compaction. */
 export function nextFreeRow(state: BoardState): number {
   return state.cards.reduce(

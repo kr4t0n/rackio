@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BoardState, CardInstance } from "@shared/types";
 import {
   boardReducer,
   defaultBoard,
+  generateCardId,
   nextFreeRow,
   parseBoardState,
 } from "./state";
@@ -97,6 +98,25 @@ describe("parseBoardState", () => {
     ]);
     const parsed = parseBoardState(JSON.stringify(board));
     expect(parsed?.cards.map((card) => card.id)).toEqual(["card-1"]);
+  });
+});
+
+describe("generateCardId", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("produces unique, non-empty ids", () => {
+    const ids = new Set(Array.from({ length: 50 }, generateCardId));
+    expect(ids.size).toBe(50);
+    for (const id of ids) expect(id.length).toBeGreaterThan(8);
+  });
+
+  it("works without crypto.randomUUID (plain-HTTP LAN origins)", () => {
+    // http:// on a LAN IP is not a secure context — randomUUID is absent.
+    vi.stubGlobal("crypto", {});
+    const ids = new Set(Array.from({ length: 50 }, generateCardId));
+    expect(ids.size).toBe(50);
   });
 });
 

@@ -37,6 +37,9 @@ export function useBoardState(): UseBoardStateResult {
   const [ready, setReady] = useState(false);
   const boardRef = useRef(board);
   const dirtyRef = useRef(false);
+  // The exact object we hydrated from the server — used to skip the echo
+  // save (PUTting back what the server just gave us) on every page load.
+  const serverBoardRef = useRef<BoardState | null>(null);
 
   // Keep the ref in sync first, before the other effects in this commit run.
   useEffect(() => {
@@ -58,6 +61,7 @@ export function useBoardState(): UseBoardStateResult {
           remote &&
           (remote.updatedAt ?? 0) >= (boardRef.current.updatedAt ?? 0)
         ) {
+          serverBoardRef.current = remote;
           dispatch({ kind: "replace", board: remote });
         }
       } catch {
@@ -78,6 +82,8 @@ export function useBoardState(): UseBoardStateResult {
     } catch {
       // Storage unavailable — server persistence still applies.
     }
+    // Echo of the server's own copy — cache it locally but don't PUT it back.
+    if (board === serverBoardRef.current) return;
     dirtyRef.current = true;
     const timer = setTimeout(() => {
       saveBoard(board)
