@@ -180,7 +180,12 @@ React-managed lifecycle. Open-Meteo connector for live data; location picker
 fallback = static gradient scene (demo already has this pattern). All three
 footprints per the demo's layouts.
 
-**M4 — Calibre-Web card**
+**M4 — Calibre-Web card** ✅ *(done 2026-07-20. Discovery: Kyle's instance is
+https://book.kubitnodes.com; OPDS requires basic auth (401 anonymous) and
+reading progress is not exposed → progress bar dropped as planned; card ships
+"latest additions"/"popular now" shelves + deep links. Connection config in
+`.env`; covers proxied server-side. `scripts/mock-calibre.mjs` fakes the
+catalog for development.)*
 Discovery task first: verify OPDS endpoints + whether reading progress is exposed on
 Kyle's instance (progress may be Kobo-sync-only — if unavailable, ship
 "recently added/read" and deep links, drop the % bar). Then connector + card in all

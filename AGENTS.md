@@ -25,7 +25,7 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   - `src/cards/` — card registry + one folder per card type. Cards implement
     the `CardDefinition` contract in `registry.tsx` (Component + Settings +
     zod config schema + supported footprints + optional `maxInstances`); the
-    board never knows card internals. Current types: `weather`,
+    board never knows card internals. Current types: `weather`, `calibre`,
     `service-tile`, `clock`, `utility`.
   - `src/cards/weather/scene/` — the three.js sky: `shaders.ts` (GLSL ported
     from the reference design), `engine.ts` (plain TS class: renderer, cloud
@@ -132,6 +132,17 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
 - **`sceneMode: "cloudy"` reuses the rain palette without particles** — the
   reference design had four scenes; overcast/fog map onto the rain look with
   `rain.visible = false` (see `MODE_UNIFORM` in engine.ts).
+- **Calibre-Web has no reading-progress API** (progress is Kobo-sync-only),
+  so the reference design's progress bar was deliberately dropped — the card
+  ships shelves ("new"/"hot" OPDS feeds) + deep links. Don't fake a % bar.
+- **Calibre connection lives in `.env`, not card config** — credentials must
+  never enter board.json (it syncs to every client). The server loads `.env`
+  via `process.loadEnvFile()` at startup; covers are proxied through
+  `/api/calibre/cover/:id` so the browser never sees the basic-auth header.
+  Kyle's instance: https://book.kubitnodes.com (OPDS 401s without creds).
+- **`scripts/mock-calibre.mjs`** fakes the OPDS catalog (books + SVG covers,
+  optional basic auth) — use it with `CALIBRE_BASE_URL=http://localhost:8093`
+  to develop the card without touching the real library.
 - **`pkill -f 'server/index.ts'` kills your own compound command** if the
   pattern appears anywhere in it (bash -c argv matches). Use
   `pkill -f 'server/index[.]ts'` in a Bash call that doesn't also spawn the
