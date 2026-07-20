@@ -26,6 +26,8 @@ export interface CardInstance {
 export interface BoardState {
   version: 1;
   cards: CardInstance[];
+  /** Epoch ms of the last mutation — newer wins when cache and server disagree. */
+  updatedAt?: number;
 }
 
 export const EMPTY_BOARD: BoardState = { version: 1, cards: [] };

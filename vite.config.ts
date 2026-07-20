@@ -20,6 +20,10 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    include: ["src/**/*.test.{ts,tsx}", "shared/**/*.test.ts"],
+    include: [
+      "src/**/*.test.{ts,tsx}",
+      "shared/**/*.test.ts",
+      "server/**/*.test.ts",
+    ],
   },
 });
