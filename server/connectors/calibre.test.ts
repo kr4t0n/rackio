@@ -27,6 +27,8 @@ const FEED = `<?xml version="1.0" encoding="UTF-8"?>
     <title>The Time Machine</title>
     <id>urn:uuid:0001</id>
     <author><name>H. G. Wells</name></author>
+    <published>2026-07-01T09:30:00+00:00</published>
+    <summary>&lt;p&gt;A Victorian scientist &amp;amp; inventor travels to the year 802,701.&lt;/p&gt;</summary>
     <link rel="http://opds-spec.org/image" href="/opds/cover/12" type="image/jpeg"/>
     <link rel="http://opds-spec.org/acquisition" href="/opds/download/12/epub/" type="application/epub+zip"/>
   </entry>
@@ -35,7 +37,15 @@ const FEED = `<?xml version="1.0" encoding="UTF-8"?>
     <id>urn:uuid:0002</id>
     <author><name>Mary Shelley</name></author>
     <author><name>Percy Shelley</name></author>
+    <content type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml"><p>A scientist assembles a creature</p><p>and regrets it.</p></div></content>
     <link rel="http://opds-spec.org/image" href="/opds/cover/36" type="image/jpeg"/>
+  </entry>
+  <entry>
+    <title>Placeholder Book</title>
+    <id>urn:uuid:0004</id>
+    <author><name>Nobody</name></author>
+    <content type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml"><p>无简介</p></div></content>
+    <link rel="http://opds-spec.org/image" href="/opds/cover/44" type="image/jpeg"/>
   </entry>
   <entry>
     <title>No Cover Book</title>
@@ -45,11 +55,24 @@ const FEED = `<?xml version="1.0" encoding="UTF-8"?>
 </feed>`;
 
 describe("parseOpdsFeed", () => {
-  it("extracts id, title, and authors from a Calibre-Web feed", () => {
+  it("extracts id, title, authors, summary, and published date", () => {
     const books = parseOpdsFeed(FEED);
     expect(books).toEqual([
-      { id: 12, title: "The Time Machine", author: "H. G. Wells" },
-      { id: 36, title: "Frankenstein", author: "Mary Shelley, Percy Shelley" },
+      {
+        id: 12,
+        title: "The Time Machine",
+        author: "H. G. Wells",
+        summary: "A Victorian scientist & inventor travels to the year 802,701.",
+        published: "2026-07-01T09:30:00+00:00",
+      },
+      {
+        id: 36,
+        title: "Frankenstein",
+        author: "Mary Shelley, Percy Shelley",
+        summary: "A scientist assembles a creature and regrets it.",
+      },
+      // "无简介" is Calibre-Web's no-description placeholder — dropped.
+      { id: 44, title: "Placeholder Book", author: "Nobody" },
     ]);
   });
 

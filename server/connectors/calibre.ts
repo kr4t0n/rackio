@@ -20,6 +20,10 @@ export interface CalibreBook {
   id: number;
   title: string;
   author: string;
+  /** Plain-text description, trimmed server-side (OPDS summaries carry HTML). */
+  summary?: string;
+  /** ISO date the book entered the library. */
+  published?: string;
 }
 
 export interface CalibreShelf {
@@ -91,6 +95,41 @@ function textOf(value: unknown): string {
   return "";
 }
 
+/** Depth-first text of a parsed XML subtree (content type="xhtml" nests
+ *  real elements, so the parser yields an object tree, not a string). */
+function collectText(value: unknown): string {
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  if (Array.isArray(value)) return value.map(collectText).join(" ");
+  if (value && typeof value === "object") {
+    return Object.entries(value)
+      .filter(([key]) => !key.startsWith("@_"))
+      .map(([, child]) => collectText(child))
+      .join(" ");
+  }
+  return "";
+}
+
+/** Calibre-Web's "there is no description" placeholders, per UI language. */
+const NO_SUMMARY = /^(无简介|no description available\.?|keine beschreibung.*)$/i;
+
+/** OPDS summaries embed HTML — reduce to trimmed plain text for the card. */
+export function plainSummary(value: unknown, maxLength = 300): string {
+  const text = collectText(value)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, e) =>
+      ({ amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'", nbsp: " " })[
+        e as string
+      ] ?? " ",
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+  if (NO_SUMMARY.test(text)) return "";
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength).replace(/\s+\S*$/, "")}…`;
+}
+
 /**
  * Parse a Calibre-Web OPDS acquisition feed. `valid` distinguishes a real
  * (possibly empty) Atom feed from arbitrary HTML — e.g. the login page that
@@ -157,6 +196,8 @@ export function parseOpdsFeed(xml: string): CalibreBook[] {
       : rawAuthor
         ? [rawAuthor]
         : [];
+    const summary = plainSummary(entry.summary ?? entry.content);
+    const published = textOf(entry.published);
     books.push({
       id,
       title: textOf(entry.title) || "Untitled",
@@ -164,6 +205,8 @@ export function parseOpdsFeed(xml: string): CalibreBook[] {
         .map((a) => textOf((a as { name?: unknown }).name))
         .filter(Boolean)
         .join(", "),
+      ...(summary ? { summary } : {}),
+      ...(published ? { published } : {}),
     });
   }
   return books;

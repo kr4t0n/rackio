@@ -75,6 +75,8 @@ export interface CalibreBook {
   id: number;
   title: string;
   author: string;
+  summary?: string;
+  published?: string;
 }
 
 export interface CalibreShelf {

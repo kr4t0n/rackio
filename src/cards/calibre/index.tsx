@@ -233,6 +233,55 @@ function ShelfStrip({
   );
 }
 
+/** Big-footprint feature: large cover, description, and added date. */
+function Spotlight({ shelf, label }: { shelf: CalibreShelf; label: string }) {
+  const book = shelf.books?.[0];
+  if (!book) return null;
+  const link = bookLink(shelf, book);
+  const added = book.published
+    ? new Date(book.published).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+      })
+    : null;
+  return (
+    <div className="flex min-h-0 flex-1 items-stretch gap-4 overflow-hidden rounded-[14px] border border-border bg-[color-mix(in_oklch,var(--bg)_30%,var(--surface)_70%)] p-3.5">
+      {/* Cover steps with card width so its 2:3 height never outgrows the box. */}
+      <div className="w-14 shrink-0 self-center @[380px]:w-20 @[460px]:w-[112px]">
+        <Cover book={book} link={link} />
+      </div>
+      <div className="flex min-w-0 flex-col py-1">
+        <p className="m-0 mb-1 text-[9px] font-semibold tracking-[0.08em] uppercase text-muted">
+          {label}
+          {added ? <span className="opacity-70"> · added {added}</span> : null}
+        </p>
+        <h3 className="m-0 font-display text-[24px] leading-[1.08] font-semibold tracking-[-0.02em]">
+          {link ? (
+            <a
+              href={link}
+              target="_blank"
+              rel="noreferrer"
+              className="text-fg no-underline hover:underline"
+            >
+              {book.title}
+            </a>
+          ) : (
+            book.title
+          )}
+        </h3>
+        {book.author ? (
+          <p className="m-0 mt-1 truncate text-xs text-muted">{book.author}</p>
+        ) : null}
+        {book.summary ? (
+          <p className="m-0 mt-2.5 hidden min-h-0 text-[12.5px] leading-[1.55] text-muted @[430px]:line-clamp-4">
+            {book.summary}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function CalibreCard({ config, footprint }: CardComponentProps<CalibreConfig>) {
   const query = useShelf(config.source);
   const shelf = query.data;
@@ -309,14 +358,8 @@ function CalibreCard({ config, footprint }: CardComponentProps<CalibreConfig>) {
     <div className="flex h-full flex-col gap-4 p-[18px]">
       <Header title={copy.title} webUrl={shelf?.webUrl} compact={false} />
       {hasBooks && shelf ? (
-        <div className="flex min-h-0 flex-1 flex-col justify-between gap-4">
-          <Feature
-            shelf={shelf}
-            label={copy.label}
-            coverClass="w-[92px] shrink-0"
-            titleClass="text-[24px] leading-[1.08]"
-            showAuthor
-          />
+        <div className="flex min-h-0 flex-1 flex-col gap-4">
+          <Spotlight shelf={shelf} label={copy.label} />
           <div>
             <div className="mb-2.5 flex items-baseline justify-between">
               <p className="m-0 text-[13px] font-semibold tracking-[-0.005em]">

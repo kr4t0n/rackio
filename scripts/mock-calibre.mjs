@@ -32,6 +32,8 @@ function feed(title, books) {
     <title>${b.title}</title>
     <id>urn:uuid:mock-${b.id}</id>
     <author><name>${b.author}</name></author>
+    <published>2026-07-${String((b.id % 19) + 1).padStart(2, "0")}T10:00:00+00:00</published>
+    <summary>&lt;p&gt;A classic from the mock shelf: ${b.title} by ${b.author}. This placeholder description exists so the big card's spotlight can show a few lines of real-feeling text, wrapping naturally across the available width of the feature block.&lt;/p&gt;</summary>
     <link rel="http://opds-spec.org/image" href="/opds/cover/${b.id}" type="image/svg+xml"/>
   </entry>`,
     )
