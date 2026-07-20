@@ -32,7 +32,7 @@ const MOBILE_FOOTPRINT_CLASS: Record<Footprint, string> = {
 };
 
 export function Board() {
-  const [board, dispatch] = useBoardState();
+  const { board, dispatch, ready } = useBoardState();
   const [editMode, setEditMode] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [settingsTarget, setSettingsTarget] = useState<SettingsTarget | null>(
@@ -141,7 +141,9 @@ export function Board() {
         )}
       </div>
 
-      {isMobile ? (
+      {!ready ? (
+        <section aria-label="Rackio service cards" className="min-h-[620px]" />
+      ) : isMobile ? (
         <section
           aria-label="Rackio service cards"
           className="flex flex-col gap-4"
