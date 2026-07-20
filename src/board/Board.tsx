@@ -183,6 +183,13 @@ export function Board() {
 
       <CatalogDrawer
         open={catalogOpen}
+        countByType={board.cards.reduce<Record<string, number>>(
+          (counts, card) => {
+            counts[card.type] = (counts[card.type] ?? 0) + 1;
+            return counts;
+          },
+          {},
+        )}
         onAdd={addCard}
         onClose={() => setCatalogOpen(false)}
       />

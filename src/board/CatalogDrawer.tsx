@@ -13,12 +13,19 @@ const FOOTPRINT_HINTS: Record<Footprint, string> = {
 
 interface CatalogDrawerProps {
   open: boolean;
+  /** Instances currently on the board, keyed by card type (for maxInstances). */
+  countByType: Readonly<Record<string, number>>;
   onAdd: (type: string) => void;
   onClose: () => void;
 }
 
 /** "Add card" drawer — lists registered card types, slides in from the right. */
-export function CatalogDrawer({ open, onAdd, onClose }: CatalogDrawerProps) {
+export function CatalogDrawer({
+  open,
+  countByType,
+  onAdd,
+  onClose,
+}: CatalogDrawerProps) {
   const reducedMotion = useReducedMotion();
 
   useEffect(() => {
@@ -72,7 +79,11 @@ export function CatalogDrawer({ open, onAdd, onClose }: CatalogDrawerProps) {
             </div>
 
             <div className="flex flex-col gap-3 overflow-y-auto p-5">
-              {listCardDefinitions().map((definition) => (
+              {listCardDefinitions().map((definition) => {
+                const atLimit =
+                  definition.maxInstances !== undefined &&
+                  (countByType[definition.type] ?? 0) >= definition.maxInstances;
+                return (
                 <div
                   key={definition.type}
                   className="rounded-2xl border border-border bg-[color-mix(in_oklch,var(--bg)_30%,var(--surface)_70%)] p-4"
@@ -84,11 +95,16 @@ export function CatalogDrawer({ open, onAdd, onClose }: CatalogDrawerProps) {
                     <button
                       type="button"
                       aria-label={`Add ${definition.name} card`}
+                      disabled={atLimit}
                       onClick={() => onAdd(definition.type)}
-                      className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl border border-border bg-[color-mix(in_oklch,var(--surface)_86%,var(--fg)_4%)] px-3.5 text-[12px] font-[550] tracking-[0.02em] transition-colors hover:bg-[color-mix(in_oklch,var(--surface)_76%,var(--fg)_10%)] [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:stroke-[1.9]"
+                      className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl border border-border bg-[color-mix(in_oklch,var(--surface)_86%,var(--fg)_4%)] px-3.5 text-[12px] font-[550] tracking-[0.02em] transition-colors hover:bg-[color-mix(in_oklch,var(--surface)_76%,var(--fg)_10%)] disabled:cursor-default disabled:opacity-45 disabled:hover:bg-[color-mix(in_oklch,var(--surface)_86%,var(--fg)_4%)] [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:stroke-[1.9]"
                     >
-                      <PlusIcon />
-                      Add
+                      {atLimit ? "On the board" : (
+                        <>
+                          <PlusIcon />
+                          Add
+                        </>
+                      )}
                     </button>
                   </div>
                   <p className="m-0 mt-1 text-[13px] text-muted">
@@ -105,7 +121,8 @@ export function CatalogDrawer({ open, onAdd, onClose }: CatalogDrawerProps) {
                     ))}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </motion.aside>
         </div>

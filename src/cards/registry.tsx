@@ -26,6 +26,8 @@ export interface CardDefinition<C = unknown> {
   defaultFootprint: Footprint;
   defaultConfig: C;
   configSchema: ZodType<C>;
+  /** Cap on simultaneous instances (e.g. WebGL scenes); unlimited if absent. */
+  maxInstances?: number;
   Component: ComponentType<CardComponentProps<C>>;
   Settings: ComponentType<CardSettingsProps<C>>;
 }
@@ -34,10 +36,12 @@ export interface CardDefinition<C = unknown> {
 import { clockCard } from "./clock";
 import { serviceTileCard } from "./service-tile";
 import { utilityCard } from "./utility";
+import { weatherCard } from "./weather";
 
 // Config types are erased for the heterogeneous registry; each definition's
 // schema is the runtime source of truth for its own config shape.
 const definitions = [
+  weatherCard,
   serviceTileCard,
   clockCard,
   utilityCard,
