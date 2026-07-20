@@ -32,11 +32,13 @@ export interface CardDefinition<C = unknown> {
 
 /* Card type modules register here. Order defines catalog order. */
 import { clockCard } from "./clock";
+import { serviceTileCard } from "./service-tile";
 import { utilityCard } from "./utility";
 
 // Config types are erased for the heterogeneous registry; each definition's
 // schema is the runtime source of truth for its own config shape.
 const definitions = [
+  serviceTileCard,
   clockCard,
   utilityCard,
 ] as unknown as ReadonlyArray<CardDefinition<never>>;

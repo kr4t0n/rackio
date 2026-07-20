@@ -83,6 +83,7 @@ export function CatalogDrawer({ open, onAdd, onClose }: CatalogDrawerProps) {
                     </h3>
                     <button
                       type="button"
+                      aria-label={`Add ${definition.name} card`}
                       onClick={() => onAdd(definition.type)}
                       className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl border border-border bg-[color-mix(in_oklch,var(--surface)_86%,var(--fg)_4%)] px-3.5 text-[12px] font-[550] tracking-[0.02em] transition-colors hover:bg-[color-mix(in_oklch,var(--surface)_76%,var(--fg)_10%)] [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:stroke-[1.9]"
                     >
