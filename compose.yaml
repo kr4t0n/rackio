@@ -1,0 +1,13 @@
+# Quick non-cluster deployment. The real target is the k8s cluster via the
+# Helm chart (M5); this is for docker-only hosts and local testing.
+services:
+  rackio:
+    build: .
+    ports:
+      - "8787:8787"
+    volumes:
+      - rackio-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  rackio-data:
