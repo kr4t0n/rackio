@@ -147,23 +147,33 @@ function Feature({
   coverClass,
   titleClass,
   showAuthor,
+  dense = false,
 }: {
   shelf: CalibreShelf;
   label: string;
   coverClass: string;
   titleClass: string;
   showAuthor: boolean;
+  dense?: boolean;
 }) {
   const book = shelf.books?.[0];
   if (!book) return null;
   const link = bookLink(shelf, book);
   return (
-    <div className="flex min-h-0 items-center gap-3.5 rounded-[14px] border border-border bg-[color-mix(in_oklch,var(--bg)_30%,var(--surface)_70%)] p-2.5">
+    <div
+      className={`flex min-h-0 items-center rounded-[14px] border border-border bg-[color-mix(in_oklch,var(--bg)_30%,var(--surface)_70%)] ${
+        dense ? "gap-2.5 p-2" : "gap-3.5 p-2.5"
+      }`}
+    >
       <div className={coverClass}>
         <Cover book={book} link={link} />
       </div>
       <div className="min-w-0">
-        <p className="m-0 mb-1 text-[9px] font-semibold tracking-[0.08em] uppercase text-muted">
+        <p
+          className={`m-0 text-[9px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase text-muted ${
+            dense ? "mb-0.5" : "mb-1"
+          }`}
+        >
           {label}
         </p>
         <h3 className={`m-0 font-display font-semibold tracking-[-0.02em] ${titleClass}`}>
@@ -176,7 +186,13 @@ function Feature({
           )}
         </h3>
         {showAuthor && book.author ? (
-          <p className="m-0 mt-1 truncate text-xs text-muted">{book.author}</p>
+          <p
+            className={`m-0 truncate text-muted ${
+              dense ? "mt-0.5 text-[11px]" : "mt-1 text-xs"
+            }`}
+          >
+            {book.author}
+          </p>
         ) : null}
       </div>
     </div>
@@ -232,17 +248,20 @@ function CalibreCard({ config, footprint }: CardComponentProps<CalibreConfig>) {
             <Feature
               shelf={shelf}
               label={copy.label}
-              coverClass="w-[3.2rem] shrink-0"
-              titleClass="text-[14px] leading-[1.15] line-clamp-2"
+              coverClass="w-10 shrink-0"
+              titleClass="text-[13px] leading-[1.15] line-clamp-2"
               showAuthor
+              dense
             />
-            <div className="mt-auto">
+            {/* The strip only fits when the (square) card is roomy enough —
+                gate on container width, which tracks height 1:1. */}
+            <div className="mt-auto hidden @[204px]:block">
               <ShelfStrip
                 shelf={shelf}
-                cols={4}
-                max={4}
+                cols={6}
+                max={6}
                 showTitles={false}
-                gapClass="gap-1.5"
+                gapClass="gap-1"
               />
             </div>
           </>
@@ -267,15 +286,15 @@ function CalibreCard({ config, footprint }: CardComponentProps<CalibreConfig>) {
               showAuthor
             />
             <div className="min-h-0 overflow-hidden border-l border-border pl-3">
-              <p className="m-0 mb-1.5 text-[11px] font-semibold tracking-[-0.005em]">
+              <p className="m-0 mb-1 text-[11px] font-semibold tracking-[-0.005em]">
                 On the shelf
               </p>
               <ShelfStrip
                 shelf={shelf}
-                cols={3}
-                max={6}
+                cols={4}
+                max={8}
                 showTitles={false}
-                gapClass="gap-1.5"
+                gapClass="gap-1"
               />
             </div>
           </div>

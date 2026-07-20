@@ -20,6 +20,9 @@ const BOOKS = [
   { id: 36, title: "Frankenstein", author: "Mary Shelley", hue: 150 },
   { id: 42, title: "The Souls of Black Folk", author: "W. E. B. Du Bois", hue: 330 },
   { id: 47, title: "Meditations", author: "Marcus Aurelius", hue: 90 },
+  { id: 53, title: "The Art of War", author: "Sun Tzu", hue: 20 },
+  { id: 58, title: "Walden", author: "Henry David Thoreau", hue: 130 },
+  { id: 61, title: "The Prince", author: "Niccolò Machiavelli", hue: 250 },
 ];
 
 function feed(title, books) {

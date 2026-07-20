@@ -188,7 +188,7 @@ export async function fetchShelf(
     return {
       configured: true,
       webUrl: connection.baseUrl,
-      books: document.books.slice(0, 8),
+      books: document.books.slice(0, 9), // 1 feature + up to 8 shelf covers
     };
   } catch {
     return { configured: true, error: "unreachable" };
