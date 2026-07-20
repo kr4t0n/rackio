@@ -1,3 +1,5 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { XMLParser } from "fast-xml-parser";
 import type {
   CalibreConnection,
@@ -35,9 +37,11 @@ export interface CalibreShelf {
 }
 
 let connectionStore: ConnectionStore | null = null;
+let coversDir: string | null = null;
 
-export function initCalibre(store: ConnectionStore): void {
+export function initCalibre(store: ConnectionStore, dataDir?: string): void {
   connectionStore = store;
+  coversDir = dataDir ? join(dataDir, "covers") : null;
 }
 
 export type ConnectionSource = "env" | "saved";
@@ -266,23 +270,132 @@ export async function getShelf(source: CalibreSource): Promise<CalibreShelf> {
   return shelf;
 }
 
-/** Proxy a cover image (adds auth; the browser never sees credentials). */
-export async function fetchCover(
-  id: number,
-): Promise<{ body: ArrayBuffer; contentType: string } | null> {
-  const connection = await resolveConnection();
-  if (!connection) return null;
+/**
+ * Cover proxying. A board fires a dozen cover requests at once, but the link
+ * to the library may be slow — naive parallel downloads share the bandwidth
+ * and all crawl into the timeout. So: covers are cached in memory (they're
+ * effectively immutable), concurrent requests for the same id share one
+ * download, and at most COVER_CONCURRENCY distinct downloads run upstream.
+ */
+
+interface CoverData {
+  body: ArrayBuffer;
+  contentType: string;
+}
+
+const COVER_TTL_MS = 6 * 60 * 60 * 1000;
+const COVER_CACHE_MAX = 300;
+const coverCache = new Map<number, { data: CoverData; expiresAt: number }>();
+const coverInflight = new Map<number, Promise<CoverData | null>>();
+
+const COVER_CONCURRENCY = 3;
+let coverSlots = COVER_CONCURRENCY;
+const coverWaiters: Array<() => void> = [];
+
+function rememberCover(id: number, data: CoverData): void {
+  if (coverCache.size >= COVER_CACHE_MAX) {
+    const oldest = coverCache.keys().next().value;
+    if (oldest !== undefined) coverCache.delete(oldest);
+  }
+  coverCache.set(id, { data, expiresAt: Date.now() + COVER_TTL_MS });
+}
+
+async function withCoverSlot<T>(task: () => Promise<T>): Promise<T> {
+  if (coverSlots === 0) {
+    await new Promise<void>((resolve) => coverWaiters.push(resolve));
+  } else {
+    coverSlots -= 1;
+  }
   try {
-    const response = await fetch(`${connection.baseUrl}/opds/cover/${id}`, {
-      headers: authHeaders(connection),
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!response.ok) return null;
+    return await task();
+  } finally {
+    const next = coverWaiters.shift();
+    if (next) next();
+    else coverSlots += 1;
+  }
+}
+
+export function clearCoverCache(): void {
+  coverCache.clear();
+}
+
+/** Covers persist to DATA_DIR/covers so the slow first download happens once
+ *  per book ever, surviving server restarts. Best-effort — disk errors fall
+ *  back to re-downloading. */
+async function readCoverFromDisk(id: number): Promise<CoverData | null> {
+  if (!coversDir) return null;
+  try {
+    const [body, contentType] = await Promise.all([
+      readFile(join(coversDir, String(id))),
+      readFile(join(coversDir, `${id}.type`), "utf8"),
+    ]);
     return {
-      body: await response.arrayBuffer(),
-      contentType: response.headers.get("content-type") ?? "image/jpeg",
+      body: body.buffer.slice(
+        body.byteOffset,
+        body.byteOffset + body.byteLength,
+      ) as ArrayBuffer,
+      contentType: contentType.trim() || "image/jpeg",
     };
   } catch {
     return null;
   }
+}
+
+async function writeCoverToDisk(id: number, data: CoverData): Promise<void> {
+  if (!coversDir) return;
+  try {
+    await mkdir(coversDir, { recursive: true });
+    await writeFile(join(coversDir, String(id)), Buffer.from(data.body));
+    await writeFile(join(coversDir, `${id}.type`), data.contentType, "utf8");
+  } catch {
+    // Best-effort — memory cache still applies for this process.
+  }
+}
+
+/** Proxy a cover image (adds auth; the browser never sees credentials). */
+export function fetchCover(id: number): Promise<CoverData | null> {
+  const cached = coverCache.get(id);
+  if (cached && cached.expiresAt > Date.now()) {
+    return Promise.resolve(cached.data);
+  }
+  const inflight = coverInflight.get(id);
+  if (inflight) return inflight;
+
+  const download = (async (): Promise<CoverData | null> => {
+    try {
+      const fromDisk = await readCoverFromDisk(id);
+      if (fromDisk) {
+        rememberCover(id, fromDisk);
+        return fromDisk;
+      }
+      const connection = await resolveConnection();
+      if (!connection) return null;
+      return await withCoverSlot(async () => {
+        const response = await fetch(`${connection.baseUrl}/opds/cover/${id}`, {
+          headers: authHeaders(connection),
+          // The library link can be very slow (~150KB covers taking 30s+).
+          signal: AbortSignal.timeout(60_000),
+        });
+        if (!response.ok) {
+          console.warn(`calibre cover ${id}: upstream ${response.status}`);
+          return null;
+        }
+        const data: CoverData = {
+          body: await response.arrayBuffer(),
+          contentType: response.headers.get("content-type") ?? "image/jpeg",
+        };
+        rememberCover(id, data);
+        await writeCoverToDisk(id, data);
+        return data;
+      });
+    } catch (error) {
+      console.warn(`calibre cover ${id}:`, (error as Error).message ?? error);
+      return null;
+    } finally {
+      coverInflight.delete(id);
+    }
+  })();
+
+  coverInflight.set(id, download);
+  return download;
 }

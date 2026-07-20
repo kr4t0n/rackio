@@ -146,6 +146,13 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   header. Kyle's instance: https://book.kubitnodes.com.
   `scripts/verify-connect.mjs` drives the whole flow headlessly against the
   authed mock (`MOCK_USER=… MOCK_PASSWORD=… node scripts/mock-calibre.mjs`).
+- **The link to Kyle's Calibre-Web is very slow** (a 150KB cover was observed
+  taking 37s) — naive parallel cover proxying times out en masse. `fetchCover`
+  therefore: dedupes concurrent requests per id, limits upstream downloads to
+  3 at a time, allows 60s per download, and caches covers in memory AND on
+  disk (`DATA_DIR/covers/`) so each book's cover is fetched once ever.
+  Resized-thumbnail web routes (`/cover/:id/sm`) 302 to login under basic
+  auth, so full covers are the only option.
 - **Users paste address-bar URLs** — Kyle's first connect saved
   `…/login?next=%2F` as the base URL, and Calibre-Web answered feed requests
   under it with the login page (HTTP 200 + HTML), which passed the original

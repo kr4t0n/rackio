@@ -33,7 +33,7 @@ const hostname = process.env.HOST ?? "0.0.0.0";
 const dataDir = process.env.DATA_DIR ?? "data";
 const store = createBoardStore(dataDir);
 const connections = createConnectionStore(dataDir);
-initCalibre(connections);
+initCalibre(connections, dataDir);
 
 const api = new Hono();
 

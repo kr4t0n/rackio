@@ -10,6 +10,8 @@ import {
   authHeaders,
   baseUrlCandidates,
   clearCalibreCache,
+  clearCoverCache,
+  fetchCover,
   fetchShelf,
   getShelf,
   initCalibre,
@@ -226,5 +228,69 @@ describe("connection resolution and shelf fetching", () => {
       "new",
     );
     expect(shelf.error).toBe("unreachable");
+  });
+});
+
+describe("fetchCover", () => {
+  let dir: string;
+  let hits = 0;
+  let live = 0;
+  let maxLive = 0;
+  const server = createServer(async (req, res) => {
+    hits += 1;
+    live += 1;
+    maxLive = Math.max(maxLive, live);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    live -= 1;
+    res.setHeader("Content-Type", "image/jpeg");
+    res.end(Buffer.from(`jpeg-bytes-${req.url}`));
+  });
+
+  beforeAll(async () => {
+    dir = await mkdtemp(join(tmpdir(), "rackio-cover-"));
+    const store = createConnectionStore(dir);
+    initCalibre(store, dir);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address() as AddressInfo;
+    await store.saveCalibre({
+      baseUrl: `http://127.0.0.1:${port}`,
+      user: "",
+      password: "",
+    });
+  });
+  afterAll(async () => {
+    server.close();
+    clearCoverCache();
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it("caches covers and dedupes concurrent requests for the same id", async () => {
+    hits = 0;
+    const [a, b] = await Promise.all([fetchCover(1), fetchCover(1)]);
+    expect(a).not.toBeNull();
+    expect(Buffer.from(a!.body).equals(Buffer.from(b!.body))).toBe(true);
+    expect(hits).toBe(1); // concurrent requests shared one download
+    await fetchCover(1);
+    expect(hits).toBe(1); // cached afterwards
+  });
+
+  it("limits concurrent upstream downloads to three", async () => {
+    hits = 0;
+    maxLive = 0;
+    const results = await Promise.all(
+      [10, 11, 12, 13, 14, 15, 16, 17].map((id) => fetchCover(id)),
+    );
+    expect(results.every(Boolean)).toBe(true);
+    expect(hits).toBe(8);
+    expect(maxLive).toBeLessThanOrEqual(3);
+  });
+
+  it("serves covers from disk after a restart (memory cache cleared)", async () => {
+    await fetchCover(21);
+    hits = 0;
+    clearCoverCache(); // simulates a server restart losing the memory cache
+    const cover = await fetchCover(21);
+    expect(cover).not.toBeNull();
+    expect(hits).toBe(0); // came from DATA_DIR/covers, not upstream
   });
 });
