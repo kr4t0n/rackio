@@ -112,16 +112,18 @@ export function Board() {
             {isMobile
               ? "Cards stack on small screens — arrange the layout from a larger one."
               : editMode
-                ? "Drag cards by their handle, switch footprints, or open a card's settings from the gear."
+                ? "Drag by the handle, switch footprints, or open settings from the gear."
                 : "Cards for every service on the rack. Switch to edit mode to arrange them."}
           </p>
         </div>
         {!isMobile && (
           <div className="flex items-center gap-2">
-            <CompactButton onClick={() => setCatalogOpen(true)}>
-              <PlusIcon />
-              <span>Add card</span>
-            </CompactButton>
+            {editMode && (
+              <CompactButton onClick={() => setCatalogOpen(true)}>
+                <PlusIcon />
+                <span>Add card</span>
+              </CompactButton>
+            )}
             <CompactButton
               aria-pressed={editMode}
               onClick={() => {
