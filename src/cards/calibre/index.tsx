@@ -147,33 +147,30 @@ function Feature({
   coverClass,
   titleClass,
   showAuthor,
-  dense = false,
+  fill = false,
 }: {
   shelf: CalibreShelf;
   label: string;
   coverClass: string;
   titleClass: string;
   showAuthor: boolean;
-  dense?: boolean;
+  /** Stretch to the available height (small footprint's single feature). */
+  fill?: boolean;
 }) {
   const book = shelf.books?.[0];
   if (!book) return null;
   const link = bookLink(shelf, book);
   return (
     <div
-      className={`flex min-h-0 items-center rounded-[14px] border border-border bg-[color-mix(in_oklch,var(--bg)_30%,var(--surface)_70%)] ${
-        dense ? "gap-2.5 p-2" : "gap-3.5 p-2.5"
+      className={`flex min-h-0 items-center gap-3.5 rounded-[14px] border border-border bg-[color-mix(in_oklch,var(--bg)_30%,var(--surface)_70%)] p-2.5 ${
+        fill ? "min-h-0 flex-1" : ""
       }`}
     >
       <div className={coverClass}>
         <Cover book={book} link={link} />
       </div>
       <div className="min-w-0">
-        <p
-          className={`m-0 text-[9px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase text-muted ${
-            dense ? "mb-0.5" : "mb-1"
-          }`}
-        >
+        <p className="m-0 mb-1 text-[9px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase text-muted">
           {label}
         </p>
         <h3 className={`m-0 font-display font-semibold tracking-[-0.02em] ${titleClass}`}>
@@ -186,13 +183,7 @@ function Feature({
           )}
         </h3>
         {showAuthor && book.author ? (
-          <p
-            className={`m-0 truncate text-muted ${
-              dense ? "mt-0.5 text-[11px]" : "mt-1 text-xs"
-            }`}
-          >
-            {book.author}
-          </p>
+          <p className="m-0 mt-1 truncate text-xs text-muted">{book.author}</p>
         ) : null}
       </div>
     </div>
@@ -293,27 +284,16 @@ function CalibreCard({ config, footprint }: CardComponentProps<CalibreConfig>) {
       <div className="flex h-full flex-col gap-2.5 p-3.5">
         <Header title="Library" webUrl={shelf?.webUrl} compact />
         {hasBooks && shelf ? (
-          <>
-            <Feature
-              shelf={shelf}
-              label={copy.label}
-              coverClass="w-10 shrink-0"
-              titleClass="text-[13px] leading-[1.15] line-clamp-2"
-              showAuthor
-              dense
-            />
-            {/* The strip only fits when the (square) card is roomy enough —
-                gate on container width, which tracks height 1:1. */}
-            <div className="mt-auto hidden @[204px]:block">
-              <ShelfStrip
-                shelf={shelf}
-                cols={6}
-                max={6}
-                showTitles={false}
-                gapClass="gap-1"
-              />
-            </div>
-          </>
+          // Single roomy feature, no cover mosaic — Kyle found the strip too
+          // compact at this size. Cover steps down when the card is tight.
+          <Feature
+            shelf={shelf}
+            label={copy.label}
+            coverClass="w-12 shrink-0 @[240px]:w-16"
+            titleClass="text-[15px] leading-[1.15] line-clamp-2"
+            showAuthor
+            fill
+          />
         ) : (
           <EmptyState shelf={shelf} />
         )}
