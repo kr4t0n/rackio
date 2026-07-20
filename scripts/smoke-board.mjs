@@ -23,7 +23,29 @@ function check(name, condition) {
   }
 }
 
+// Deterministic start: reset client cache and server board to the fixture.
+const FIXTURE = {
+  version: 1,
+  cards: [
+    { id: "clock-default", type: "clock", footprint: "wide", x: 0, y: 0,
+      config: { label: "Home rack", use24h: true, showSeconds: false } },
+    { id: "utility-rack-health", type: "utility", footprint: "wide", x: 4, y: 0,
+      config: { title: "Rack health", state: "Ready to connect", caption: "…" } },
+    { id: "utility-storage", type: "utility", footprint: "small", x: 8, y: 0,
+      config: { title: "Storage", state: "No source yet", caption: "…" } },
+  ],
+};
 await page.goto(base, { waitUntil: "networkidle" });
+await page.evaluate(async (fixture) => {
+  localStorage.clear();
+  await fetch("/api/board", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(fixture),
+  });
+}, FIXTURE);
+await page.reload({ waitUntil: "networkidle" });
+await page.waitForTimeout(300);
 
 // Default board renders three cards.
 const cardCount = await page.locator(".card-frame").count();
@@ -97,11 +119,7 @@ check(
 await page.getByRole("button", { name: "Add card" }).click();
 await page.waitForTimeout(500);
 await page.screenshot({ path: "/tmp/rackio-m1-catalog.png" });
-await page
-  .getByRole("dialog", { name: "Add a card" })
-  .getByRole("button", { name: "Add" })
-  .first()
-  .click();
+await page.getByRole("button", { name: "Add Clock card" }).click();
 await page.waitForTimeout(300);
 await page.keyboard.press("Escape");
 await page.waitForTimeout(300);
@@ -133,9 +151,24 @@ const storedAfter = await page.evaluate(() =>
   localStorage.getItem("rackio-board"),
 );
 check("layout survives reload", storedBefore === storedAfter);
+if (storedBefore !== storedAfter) {
+  console.error("  before:", storedBefore);
+  console.error("  after: ", storedAfter);
+}
 check(
   "config survives reload",
   await page.getByText("Kyle's rack").isVisible(),
+);
+
+// Server persistence: the board must land in /api/board (debounced save).
+await page.waitForTimeout(900);
+const serverBoard = await page.evaluate(async () => {
+  const res = await fetch("/api/board");
+  return JSON.stringify(await res.json());
+});
+check(
+  "board persisted to the server",
+  serverBoard.includes("Kyle's rack"),
 );
 await page.screenshot({ path: "/tmp/rackio-m1-final.png" });
 
