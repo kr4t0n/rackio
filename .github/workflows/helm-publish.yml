@@ -1,0 +1,120 @@
+name: helm-publish
+
+# Publish the Rackio Helm chart to a GitHub Pages-served repo at
+#   https://kr4t0n.github.io/rackio/helm/
+# (i.e. the `helm/` subfolder of the gh-pages branch).
+#
+# Trigger: any push to main that touches `helm/**` or this workflow.
+# Bumping `helm/rackio/Chart.yaml`'s `version:` is the release action —
+# `helm package` won't overwrite an existing tarball, so a no-op merge
+# with the same version is harmless and idempotent.
+#
+# Manual `workflow_dispatch` is wired up for ad-hoc rebuilds / index
+# regeneration without a code change.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'helm/**'
+      - '.github/workflows/helm-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # required to push commits to gh-pages
+
+concurrency:
+  # Anything else that pushes to gh-pages must share this group.
+  # cancel-in-progress: false because each run finalizes an immutable
+  # artifact (a versioned .tgz) we don't want to lose.
+  group: gh-pages-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.17.0
+
+      - name: Lint the chart
+        run: helm lint helm/rackio
+
+      # gh-pages may not exist on a fresh repo — create it as an orphan
+      # branch on the first run instead of failing the checkout.
+      - name: Checkout gh-pages
+        id: pages
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: pages
+
+      - name: Bootstrap gh-pages if missing
+        if: steps.pages.outcome == 'failure'
+        run: |
+          set -euo pipefail
+          mkdir -p pages
+          cd pages
+          git init -b gh-pages
+          git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          # .nojekyll keeps Pages from swallowing files; the placeholder
+          # gives the branch an initial commit to build on.
+          touch .nojekyll
+          printf '# rackio\n\nHelm repo: https://%s.github.io/%s/helm\n' \
+            '${{ github.repository_owner }}' '${{ github.event.repository.name }}' > README.md
+          git add .
+          git commit -m 'chore(pages): initialize gh-pages'
+
+      - name: Package & (re)index the chart under /helm
+        env:
+          # Pages URL the index advertises for chart downloads. Must match
+          # the live Pages URL exactly — tarball URLs in index.yaml are
+          # absolute, so a wrong base yields 404s at install time.
+          REPO_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/helm
+        run: |
+          set -euo pipefail
+          mkdir -p pages/helm
+
+          # `helm package` refuses to overwrite a tarball of the same
+          # name-version, which is the safety net we want: the only way
+          # to publish is to bump Chart.yaml's `version`.
+          helm package helm/rackio --destination pages/helm
+
+          # Rebuild index.yaml. `--merge` carries forward already-published
+          # versions so users can still pin an older one.
+          if [ -f pages/helm/index.yaml ]; then
+            helm repo index pages/helm \
+              --url "$REPO_URL" \
+              --merge pages/helm/index.yaml
+          else
+            helm repo index pages/helm --url "$REPO_URL"
+          fi
+
+          echo "Repo URL : $REPO_URL"
+          echo "Tarballs :"
+          ls -1 pages/helm/*.tgz || true
+
+      - name: Commit & push to gh-pages
+        working-directory: pages
+        run: |
+          set -euo pipefail
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add helm .nojekyll 2>/dev/null || git add helm
+          # Skip when nothing changed (workflow ran but Chart.yaml's
+          # version wasn't bumped — the tarball already exists and the
+          # merged index is byte-identical).
+          if git diff --staged --quiet; then
+            echo "no chart changes — nothing to publish"
+            exit 0
+          fi
+          git commit -m "chore(helm): publish chart from ${GITHUB_SHA::7}"
+          git push origin gh-pages

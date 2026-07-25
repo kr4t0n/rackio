@@ -30,3 +30,25 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # Catches chart syntax/template errors on PRs, before helm-publish
+  # (which lints again) ever runs on main.
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.17.0
+
+      - name: Lint chart
+        run: helm lint helm/rackio
+
+      - name: Render default values
+        run: helm template rackio helm/rackio > /dev/null
+
+      - name: Render tailscale example
+        run: |
+          helm template rackio helm/rackio \
+            -f helm/rackio/examples/values.tailscale.yaml > /dev/null
