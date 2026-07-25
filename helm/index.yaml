@@ -3,7 +3,32 @@ entries:
   rackio:
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-07-25T10:07:11.650940102Z"
+    created: "2026-07-25T11:51:52.805623389Z"
+    description: 'Rackio — a grid-based dashboard for the services on your rack. This
+      chart deploys the single rackio container (React SPA + Hono API in one process)
+      with a PersistentVolumeClaim for its board layout, integration credentials,
+      and cover cache. No database is required — rackio stores state as JSON files
+      on that volume. '
+    digest: a357ea7c511f87d2a289cef4482d4c955e31e064a98e84b198444ff281596d85
+    home: https://github.com/kr4t0n/rackio
+    keywords:
+    - rackio
+    - dashboard
+    - homelab
+    - self-hosted
+    maintainers:
+    - name: kr4t0n
+      url: https://github.com/kr4t0n
+    name: rackio
+    sources:
+    - https://github.com/kr4t0n/rackio
+    type: application
+    urls:
+    - https://kr4t0n.github.io/rackio/helm/rackio-0.2.0.tgz
+    version: 0.2.0
+  - apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-07-25T11:51:52.805111346Z"
     description: 'Rackio — a grid-based dashboard for the services on your rack. This
       chart deploys the single rackio container (React SPA + Hono API in one process)
       with a PersistentVolumeClaim for its board layout, integration credentials,
@@ -26,4 +51,4 @@ entries:
     urls:
     - https://kr4t0n.github.io/rackio/helm/rackio-0.1.0.tgz
     version: 0.1.0
-generated: "2026-07-25T10:07:11.650421729Z"
+generated: "2026-07-25T11:51:52.804410491Z"
