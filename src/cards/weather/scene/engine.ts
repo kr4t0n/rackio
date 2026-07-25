@@ -56,6 +56,9 @@ export class WeatherSceneEngine {
   private snowStates: SnowState[] = [];
   private animatedUniforms: Array<Record<string, THREE.IUniform>> = [];
   private mode: SceneMode = "clear";
+  /* 0 = day, 1 = night; eased so sunrise/sunset transitions glide. */
+  private night = 0;
+  private nightTarget = 0;
   private frameHandle = 0;
   private lastFrame = 0;
   private readonly animated: boolean;
@@ -143,6 +146,7 @@ export class WeatherSceneEngine {
     const uniforms: Record<string, THREE.IUniform> = {
       uTime: { value: 0 },
       uWeather: { value: MODE_UNIFORM[this.mode] },
+      uNight: { value: this.night },
       ...extra,
     };
     this.animatedUniforms.push(uniforms);
@@ -232,8 +236,16 @@ export class WeatherSceneEngine {
     return points;
   }
 
-  setMode(mode: SceneMode): void {
+  setMode(mode: SceneMode, isDay = true): void {
     this.mode = mode;
+    this.nightTarget = isDay ? 0 : 1;
+    if (!this.animated) {
+      // No animation loop to ease it — snap.
+      this.night = this.nightTarget;
+      this.animatedUniforms.forEach((uniforms) => {
+        uniforms.uNight.value = this.night;
+      });
+    }
     const value = MODE_UNIFORM[mode];
     this.animatedUniforms.forEach((uniforms) => {
       uniforms.uWeather.value = value;
@@ -242,7 +254,8 @@ export class WeatherSceneEngine {
     (this.rain.material as THREE.LineBasicMaterial).opacity =
       mode === "storm" ? 0.56 : 0.39;
     this.snow.visible = mode === "snow";
-    this.renderer.toneMappingExposure = mode === "storm" ? 0.88 : 1.08;
+    this.renderer.toneMappingExposure =
+      (mode === "storm" ? 0.88 : 1.08) * (this.nightTarget > 0.5 ? 0.82 : 1);
     if (!this.animated) this.renderFrame(0);
   }
 
@@ -321,8 +334,13 @@ export class WeatherSceneEngine {
       ? Math.min(0.05, Math.max(0, (time - this.lastFrame) * 0.001))
       : 0;
     this.lastFrame = time;
+    if (this.night !== this.nightTarget) {
+      const step = Math.min(0.04, Math.abs(this.nightTarget - this.night));
+      this.night += this.nightTarget > this.night ? step : -step;
+    }
     this.animatedUniforms.forEach((uniforms) => {
       uniforms.uTime.value = this.animated ? elapsed : 0;
+      uniforms.uNight.value = this.night;
     });
     const flash =
       this.mode === "storm" && this.animated

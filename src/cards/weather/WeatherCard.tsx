@@ -97,7 +97,7 @@ export function WeatherCard({
           />
         }
       >
-        <WeatherScene mode={mode} />
+        <WeatherScene mode={mode} isDay={report?.isDay ?? true} />
       </Suspense>
       <div className="relative z-3 grid h-full grid-rows-[auto_1fr_auto] p-5 text-[oklch(98%_0.004_240)] [text-shadow:0_1px_18px_oklch(13%_0.03_250_/_0.3)]">
         <div className="flex items-start justify-between gap-4">

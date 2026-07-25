@@ -23,7 +23,26 @@ function detectWebGL(): boolean {
   }
 }
 
-export function WeatherScene({ mode }: { mode: SceneMode }) {
+/** Night counterparts, so the fallback (and the frame before the first
+ *  render) doesn't flash a daylit sky at midnight. */
+const FALLBACK_GRADIENT_NIGHT: Record<SceneMode, string> = {
+  clear:
+    "linear-gradient(160deg, oklch(28% 0.06 258), oklch(19% 0.05 262) 55%, oklch(13% 0.03 265))",
+  cloudy:
+    "linear-gradient(160deg, oklch(25% 0.045 258), oklch(17% 0.035 262) 54%, oklch(12% 0.02 265))",
+  rain: "linear-gradient(160deg, oklch(25% 0.045 258), oklch(17% 0.035 262) 54%, oklch(12% 0.02 265))",
+  storm:
+    "linear-gradient(160deg, oklch(19% 0.03 260), oklch(13% 0.025 265) 60%, oklch(9% 0.015 268))",
+  snow: "linear-gradient(160deg, oklch(33% 0.03 255), oklch(22% 0.03 260) 56%, oklch(15% 0.02 264))",
+};
+
+export function WeatherScene({
+  mode,
+  isDay = true,
+}: {
+  mode: SceneMode;
+  isDay?: boolean;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<WeatherSceneEngine | null>(null);
@@ -47,6 +66,8 @@ export function WeatherScene({ mode }: { mode: SceneMode }) {
       return;
     }
     engineRef.current = engine;
+    // The mode/isDay sync effect below runs right after mount, so the
+    // initial state lands there rather than being applied twice here.
 
     const observer = new ResizeObserver((entries) => {
       const { width, height } = entries[0].contentRect;
@@ -62,15 +83,19 @@ export function WeatherScene({ mode }: { mode: SceneMode }) {
   }, []);
 
   useEffect(() => {
-    engineRef.current?.setMode(mode);
-  }, [mode]);
+    engineRef.current?.setMode(mode, isDay);
+  }, [mode, isDay]);
 
   return (
     <div
       ref={containerRef}
       aria-hidden="true"
       className="absolute inset-0 isolate"
-      style={{ background: FALLBACK_GRADIENT[mode] }}
+      style={{
+        background: isDay
+          ? FALLBACK_GRADIENT[mode]
+          : FALLBACK_GRADIENT_NIGHT[mode],
+      }}
     >
       {webglAvailable && (
         <canvas

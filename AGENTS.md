@@ -162,6 +162,15 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
 - **Weather card is capped at one instance** (`maxInstances: 1`) because each
   scene owns a WebGL context (browsers allow ~8-16 per page). The catalog
   disables Add at the cap. A shared-renderer refactor would lift this.
+- **The weather scene is day/night aware via `isDay`** (Open-Meteo's
+  `is_day`), threaded card → `WeatherScene` → engine as a `uNight` uniform
+  that every shader mixes against: night palettes, a crescent moon in place
+  of the sun, a hash-based star field on clear nights, darker cloud/mist
+  lighting, and lower tone-mapping exposure. It eases over ~1s so
+  sunrise/sunset glide rather than snap. The fallback gradients have night
+  variants too — otherwise a WebGL-less client flashes a noon sky at
+  midnight. Any new scene uniform must be added in `makeUniforms` so it
+  reaches all layers.
 - **`sceneMode: "cloudy"` reuses the rain palette without particles** — the
   reference design had four scenes; overcast/fog map onto the rain look with
   `rain.visible = false` (see `MODE_UNIFORM` in engine.ts).
