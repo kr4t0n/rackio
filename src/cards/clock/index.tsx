@@ -123,7 +123,7 @@ function LocalClock({
 
   return (
     <section
-      className={`min-h-0 min-w-0 overflow-hidden rounded-[14px] border border-border bg-[color-mix(in_oklch,var(--bg)_28%,var(--surface)_72%)] ${
+      className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[14px] border border-border bg-[color-mix(in_oklch,var(--bg)_28%,var(--surface)_72%)] ${
         size === "big" ? "p-3.5" : "p-3"
       }`}
       aria-label="Local clock"
@@ -131,7 +131,9 @@ function LocalClock({
       <p className="m-0 font-mono text-[9px] font-[550] tracking-[0.08em] uppercase text-muted">
         Local
       </p>
-      <div className="mt-1 flex min-w-0 items-baseline gap-1.5">
+      {/* mt-auto here + mb-auto on the progress block center the time cluster
+          in the space below the label (Kyle: "land in the middle"). */}
+      <div className="mt-auto flex min-w-0 items-baseline gap-1.5 pt-1">
         <time
           className={`font-display font-semibold leading-[0.95] tracking-[-0.045em] whitespace-nowrap tabular-nums ${timeClass}`}
         >
@@ -147,7 +149,7 @@ function LocalClock({
         {date}
       </p>
       <div
-        className={size === "big" ? "mt-3" : "mt-2.5"}
+        className={`mb-auto ${size === "big" ? "mt-3" : "mt-2.5"}`}
         aria-label="Progress through the local day"
       >
         <div className="h-1 overflow-hidden rounded-full bg-[color-mix(in_oklch,var(--fg)_11%,transparent)]">
