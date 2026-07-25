@@ -26,8 +26,11 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
     the `CardDefinition` contract in `registry.tsx` (Component + Settings +
     zod config schema + supported footprints + optional `maxInstances`); the
     board never knows card internals. Current types: `weather`, `adguard`,
-    `calendar`, `calibre`, `service-tile`, `clock` (the Time card — type key
-    kept for board compatibility), `utility`.
+    `downloader`, `calendar`, `calibre`, `service-tile`, `clock` (the Time
+    card — type key kept for board compatibility), `utility`.
+  - `src/board/Sparkline.tsx` — shared activity chart (area + line, hover /
+    keyboard crosshair and tooltip) used by adguard and downloader; callers
+    supply value/label formatting.
   - `src/cards/weather/scene/` — the three.js sky: `shaders.ts` (GLSL ported
     from the reference design), `engine.ts` (plain TS class: renderer, cloud
     planes, rain/snow particles), `WeatherScene.tsx` (React lifecycle +
@@ -164,6 +167,21 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   disk (`DATA_DIR/covers/`) so each book's cover is fetched once ever.
   Resized-thumbnail web routes (`/cover/:id/sm`) 302 to login under basic
   auth, so full covers are the only option.
+- **Downloader connections are PER CARD, not global** — Kyle runs several
+  torrent clients, so `connections.json` holds `downloaders[<cardId>]` and
+  every endpoint is `/api/downloader/:instanceId/…`. `CardSettingsProps` gains
+  `instanceId` for exactly this. Two consequences to preserve: card ids are
+  validated against `^[A-Za-z0-9_-]{1,64}$` before touching the store, and
+  `PUT /api/board` **prunes connections whose card is gone** — otherwise
+  deleting a card would orphan its credentials on disk forever.
+- **Torrent client quirks**: qBittorrent needs a login round-trip whose `SID`
+  cookie is cached (~25 min) and re-issued on 403; ETA `8640000` means
+  "unknown". Transmission answers the first RPC call with **409 + a CSRF
+  session id** that must be replayed — the retry is built into
+  `transmissionRpc`. Neither client exposes a throughput history, so the
+  server keeps an in-memory ring of download-rate samples per card and sends
+  ages alongside for the chart's "30s ago" labels; the ring resets on
+  restart by design (no DB — see the storage decision).
 - **AdGuard = third connector on the same shape** (settings-UI connection →
   connections.json, `ADGUARD_*` env override, validate-before-save with URL
   candidates so a pasted `#/dashboard` URL works). Stats come from
