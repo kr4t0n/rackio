@@ -107,20 +107,33 @@ service:
   annotations: {}
 
 # ─── Ingress ─────────────────────────────────────────────────────────
-# One host → one Ingress. With the tailscale operator (className:
-# tailscale) the host becomes the tailnet device name and TLS is issued
-# by Tailscale itself — see examples/values.tailscale.yaml.
+# Standard Helm ingress schema: a list of hosts (each with its own paths)
+# and a list of TLS entries.
+#
+#   ingress:
+#     enabled: true
+#     className: traefik
+#     annotations:
+#       traefik.ingress.kubernetes.io/router.tls.certresolver: dnspod
+#     hosts:
+#       - host: rackio.example.com
+#         paths:
+#           - path: /
+#             pathType: ImplementationSpecific
+#     tls:
+#       - hosts:
+#           - rackio.example.com
+#         # secretName is optional — omit it when the controller issues
+#         # the cert (traefik certresolver, tailscale operator); set it to
+#         # use an existing/cert-manager Secret.
+#
+# See examples/values.tailscale.yaml for the tailnet variant.
 ingress:
   enabled: false
   className: ""
-  host: ""
-  path: /
-  pathType: Prefix
   annotations: {}
-  tls:
-    enabled: false
-    # Leave empty when the controller issues its own cert (tailscale).
-    secretName: ""
+  hosts: []
+  tls: []
 
 # Extra environment variables for the container (non-sensitive).
 extraEnv: []

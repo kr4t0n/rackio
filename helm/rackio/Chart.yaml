@@ -11,7 +11,16 @@ type: application
 # Chart version is independent of the app it ships. Bump on chart changes;
 # `helm package` refuses to overwrite an existing tarball, so bumping this
 # field is the release action (see helm-publish.yml).
-version: 0.1.0
+#
+# 0.2.0 switches `ingress` to the standard Helm schema — `hosts: [{host,
+# paths: [{path, pathType}]}]` and `tls: [{hosts, secretName?}]` — which
+# supports several hosts/paths and per-entry TLS. BREAKING for anyone who
+# set the old flat `ingress.host` / `ingress.path` / `ingress.tls.enabled`
+# values; the chart fails with a message pointing at the new shape.
+# 0.1.0 also carried an `integrations` block for pinning credentials via
+# env vars; that is gone — every integration is connected from its card's
+# settings UI.
+version: 0.2.0
 # App version tracks the Docker image tag pulled by default.
 #
 # 0.1.0 is the first published release: the board engine (drag, three

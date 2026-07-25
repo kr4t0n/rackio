@@ -3,11 +3,18 @@ Rackio {{ .Chart.AppVersion }} is installed as release "{{ .Release.Name }}".
 {{- if .Values.ingress.enabled }}
 
 Open the board at:
-  http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}{{ .Values.ingress.path }}
+{{- $tlsHosts := dict }}
+{{- range .Values.ingress.tls }}{{ range .hosts }}{{ $_ := set $tlsHosts . true }}{{ end }}{{ end }}
+{{- range .Values.ingress.hosts }}
+{{- $host := .host }}
+{{- range .paths }}
+  http{{ if hasKey $tlsHosts $host }}s{{ end }}://{{ $host }}{{ .path }}
+{{- end }}
+{{- end }}
 {{- if eq .Values.ingress.className "tailscale" }}
 
-  (Tailscale operator: "{{ .Values.ingress.host }}" is now a tailnet device —
-  give it a few seconds to come up, then check `tailscale status`.)
+  (Tailscale operator: each host above is now a tailnet device — give it a
+  few seconds to come up, then check `tailscale status`.)
 {{- end }}
 {{- else if eq .Values.service.type "ClusterIP" }}
 

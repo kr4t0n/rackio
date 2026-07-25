@@ -71,8 +71,16 @@ Guard rails: fail the install with a useful message rather than
 rendering something that silently misbehaves.
 */}}
 {{- define "rackio.validate" -}}
-{{- if and .Values.ingress.enabled (not .Values.ingress.host) -}}
-{{- fail "ingress.enabled is true but ingress.host is empty — set the hostname (with the tailscale operator this becomes the tailnet device name)" -}}
+{{- if and .Values.ingress.enabled (not .Values.ingress.hosts) -}}
+{{- fail "ingress.enabled is true but ingress.hosts is empty — add at least one entry, e.g. hosts: [{host: rackio.example.com, paths: [{path: /, pathType: Prefix}]}]" -}}
+{{- end -}}
+{{- range .Values.ingress.hosts -}}
+{{- if not .host -}}
+{{- fail "every ingress.hosts entry needs a host" -}}
+{{- end -}}
+{{- if not .paths -}}
+{{- fail (printf "ingress host %s has no paths — add e.g. paths: [{path: /, pathType: Prefix}]" .host) -}}
+{{- end -}}
 {{- end -}}
 {{- if and .Values.persistence.enabled .Values.persistence.existingClaim (eq .Values.persistence.existingClaim "") -}}
 {{- fail "persistence.existingClaim must be a claim name or left unset" -}}

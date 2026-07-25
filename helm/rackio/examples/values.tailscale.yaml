@@ -19,15 +19,17 @@
 ingress:
   enabled: true
   className: tailscale
-  # Becomes the tailnet device name.
-  host: rackio
-  path: /
-  pathType: Prefix
+  hosts:
+    # The host becomes the tailnet device name.
+    - host: rackio
+      paths:
+        - path: /
+          pathType: Prefix
   tls:
-    # Required: it's how the tailscale controller learns the device name.
-    enabled: true
-    # Left empty — Tailscale issues and manages the cert itself.
-    secretName: ""
+    # Required: the tls block is how the tailscale controller learns the
+    # device name. No secretName — Tailscale issues the cert itself.
+    - hosts:
+        - rackio
   # Optional: pin the device to an ACL tag, or expose it publicly.
   # annotations:
   #   tailscale.com/tags: "tag:rackio"

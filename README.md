@@ -157,13 +157,33 @@ helm install rackio rackio/rackio -n rackio --create-namespace \
   -f helm/rackio/examples/values.tailscale.yaml
 ```
 
+Or behind your own ingress controller — the usual Helm shape, so several
+hosts and paths work:
+
+```yaml
+ingress:
+  enabled: true
+  className: traefik
+  annotations:
+    traefik.ingress.kubernetes.io/router.tls.certresolver: dnspod
+  hosts:
+    - host: rackio.example.com
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls:
+    - hosts:
+        - rackio.example.com
+      # secretName: rackio-tls   # omit when the controller issues the cert
+```
+
 Key values (full list in [helm/rackio/values.yaml](helm/rackio/values.yaml)):
 
 | Value | Default | Notes |
 | --- | --- | --- |
 | `image.tag` | `.Chart.AppVersion` | Pin a specific image |
 | `persistence.enabled` / `size` | `true` / `1Gi` | PVC is kept on uninstall |
-| `ingress.enabled` / `className` / `host` | `false` | One host → one Ingress |
+| `ingress.enabled` / `className` / `hosts` / `tls` | `false` | Standard Helm ingress schema (see below) |
 
 Rackio reaches your services **from the pod**, so configured addresses
 must be routable from inside the cluster. It runs as a non-root user
