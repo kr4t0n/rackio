@@ -3,6 +3,7 @@ import { useState } from "react";
 import { z } from "zod";
 import type { Footprint } from "@shared/types";
 import { Field, TextInput } from "@/board/settings-fields";
+import { Sparkline } from "@/board/Sparkline";
 import type { AdguardRank, AdguardStats } from "@/lib/api";
 import {
   clearAdguardConnection,
@@ -15,7 +16,7 @@ import type {
   CardDefinition,
   CardSettingsProps,
 } from "../registry";
-import { ActivityChart } from "./Chart";
+
 
 const configSchema = z.object({});
 type AdguardConfig = z.infer<typeof configSchema>;
@@ -30,6 +31,15 @@ function useStats() {
 }
 
 const number = (value: number | undefined) => (value ?? 0).toLocaleString();
+
+/** Chart tick label for a series index, counting back from "now". */
+function unitLabel(index: number, length: number, unit: "hours" | "days"): string {
+  if (index === length - 1) return "Now";
+  const back = length - 1 - index;
+  if (unit === "days") return `${back}d ago`;
+  const hour = (new Date().getHours() - back + 24) % 24;
+  return `${String(hour).padStart(2, "0")}:00`;
+}
 
 function ShieldMark({ compact }: { compact: boolean }) {
   return (
@@ -170,9 +180,13 @@ function ActivityPanel({
       {/* min-h-0: without it this grid item sizes to content and the chart
           paints over the stats row below. */}
       <div className={`min-h-0 ${compact ? "mt-1" : "mt-2"}`}>
-        <ActivityChart
+        <Sparkline
           values={stats.series ?? []}
-          unit={stats.timeUnit ?? "hours"}
+          ariaLabel={`Blocked requests by ${stats.timeUnit === "days" ? "day" : "hour"}. Use arrow keys to inspect points.`}
+          formatValue={(value) => `${value.toLocaleString()} blocked`}
+          formatLabel={(index, length) =>
+            unitLabel(index, length, stats.timeUnit ?? "hours")
+          }
           showAxis={size === "big"}
         />
       </div>
