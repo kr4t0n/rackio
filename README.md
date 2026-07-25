@@ -11,18 +11,21 @@ board that feels like a control surface: live weather rendered with WebGL,
 what you're reading in Calibre, whether Plex and Home Assistant are up — at a
 glance, arranged your way.
 
-**Status**: M4 (calibre card) — the board is playable and useful: edit mode,
+**Status**: post-M4 card expansion — the board is playable and useful: edit mode,
 drag by handle on a square-cell 12-column grid, per-card footprint switching,
 an "Add card" catalog, per-card settings in a flip-to-center panel. The
 layout persists **server-side** (`data/board.json`) with newer-wins conflict
 resolution against the localStorage cache. Card types: **weather** (live
 Open-Meteo conditions rendered as an animated WebGL sky, with a location
-picker in settings), **calibre library** (fresh reads from Calibre-Web's
+picker in settings), **calendar** (month view, 12-day strip, and upcoming
+agenda from an iCal subscription configured in settings — recurrences
+expanded server-side), **calibre library** (fresh reads from Calibre-Web's
 OPDS catalog with proxied covers and deep links; connect from the card's
 settings — credentials are validated then stored server-side, never in the
 board), **service tile** (link + live health checks via the server's
-LAN-only probe), clock, and a utility placeholder. Docker packaging
-included. See [PLAN.md](PLAN.md) for the full roadmap.
+LAN-only probe), **time** (local clock with day progress plus up to four
+world clocks), and a utility placeholder. Docker packaging included. See
+[PLAN.md](PLAN.md) for the full roadmap.
 
 ## Prerequisites
 
@@ -93,9 +96,14 @@ deployments where secrets come from the platform.
 - `GET /api/calibre/cover/:id` — cover image proxy (auth stays server-side)
 - `GET/PUT/DELETE /api/calibre/connection` — connection status (sanitized) and
   UI-driven setup; PUT validates credentials against the library before saving
+- `GET /api/calendar/events` — iCal feed events, recurrences expanded, cached 10 min
+- `GET/PUT/DELETE /api/calendar/connection` — feed subscription (status exposes
+  the host only; `CALENDAR_ICS_URL` env overrides)
 
 `node scripts/mock-calibre.mjs` runs a fake Calibre-Web OPDS server on :8093
-for developing the calibre card without a real library.
+for developing the calibre card without a real library;
+`node scripts/mock-ical.mjs` serves a fixture ICS feed on :8094 for the
+calendar card.
 
 Service integration secrets (Calibre-Web credentials, etc.) arrive with their
 milestones and will be documented in `.env.example` as they land. Secrets live

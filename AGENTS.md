@@ -25,8 +25,9 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   - `src/cards/` — card registry + one folder per card type. Cards implement
     the `CardDefinition` contract in `registry.tsx` (Component + Settings +
     zod config schema + supported footprints + optional `maxInstances`); the
-    board never knows card internals. Current types: `weather`, `calibre`,
-    `service-tile`, `clock`, `utility`.
+    board never knows card internals. Current types: `weather`, `calendar`,
+    `calibre`, `service-tile`, `clock` (the Time card — type key kept for
+    board compatibility), `utility`.
   - `src/cards/weather/scene/` — the three.js sky: `shaders.ts` (GLSL ported
     from the reference design), `engine.ts` (plain TS class: renderer, cloud
     planes, rain/snow particles), `WeatherScene.tsx` (React lifecycle +
@@ -163,6 +164,19 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   disk (`DATA_DIR/covers/`) so each book's cover is fetched once ever.
   Resized-thumbnail web routes (`/cover/:id/sm`) 302 to login under basic
   auth, so full covers are the only option.
+- **Calendar = iCal subscription, same secrecy rules as calibre**: private
+  ICS URLs are capability tokens, stored in connections.json via the card's
+  settings (env override `CALENDAR_ICS_URL`); the status endpoint returns the
+  HOST only, never the full URL. Recurrence expansion happens server-side
+  (node-ical), windowed to −1/+60 days, capped at 100 events.
+  `scripts/mock-ical.mjs` serves a fixture feed on :8094 for development.
+- **The Time card keeps type key `clock`** so existing board instances
+  upgrade in place — old `{label,use24h,showSeconds}` configs fail the new
+  schema and reset to defaults by design (resolveConfig fallback).
+- **Wide-footprint two-column bodies need `grid-rows-[minmax(0,1fr)]`**:
+  without an explicit row track the implicit row sizes to content and tall
+  columns overflow the card (bit the Time card's world clocks). Same family
+  as the M0 fixed-row-height gotcha.
 - **Users paste address-bar URLs** — Kyle's first connect saved
   `…/login?next=%2F` as the base URL, and Calibre-Web answered feed requests
   under it with the login page (HTTP 200 + HTML), which passed the original
