@@ -1,0 +1,163 @@
+# ─────────────────────────────────────────────────────────────────────
+# Rackio Helm chart values
+#
+# Rackio is a single container: the Hono server serves the built SPA and
+# the /api routes. It keeps all state as JSON files (plus a cover cache)
+# under /app/data, so the only infrastructure it needs is a volume —
+# there is no database by design.
+# ─────────────────────────────────────────────────────────────────────
+
+# Optional overrides; default naming is the standard "<release>-<chart>".
+nameOverride: ""
+fullnameOverride: ""
+
+# Labels/annotations applied to every object the chart renders.
+commonLabels: {}
+commonAnnotations: {}
+
+image:
+  registry: docker.io
+  repository: kr4t0n/rackio
+  pullPolicy: IfNotPresent
+  # Defaults to .Chart.AppVersion; override to pin an image without
+  # bumping the chart (e.g. "sha-1a2b3c4" from a dev build).
+  tag: ""
+
+# References existing Secrets of type kubernetes.io/dockerconfigjson.
+imagePullSecrets: []
+# - name: my-registry-creds
+
+# ─── Workload ────────────────────────────────────────────────────────
+# replicaCount is intentionally not exposed: rackio writes JSON state to
+# a ReadWriteOnce volume from a single process. Running two replicas
+# would race on those files. Scale out is a non-goal (see PLAN.md's
+# storage decision); the container restarts in seconds.
+containerPort: 8787
+
+# Recreate, not RollingUpdate: with a ReadWriteOnce PVC the new pod
+# can't attach the volume until the old one releases it, so a rolling
+# update would deadlock until the timeout.
+updateStrategy: Recreate
+
+podAnnotations: {}
+podLabels: {}
+
+# Runs as an unprivileged user. fsGroup makes the mounted volume
+# group-writable so the server can create board.json / covers/.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop: [ALL]
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Probes hit /api/health, which is dependency-free and always answers
+# once the process is up.
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 15
+  periodSeconds: 20
+  timeoutSeconds: 3
+  failureThreshold: 3
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 3
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# ─── Persistence ─────────────────────────────────────────────────────
+# /app/data holds board.json (layout), connections.json (integration
+# credentials, 0600) and covers/ (Calibre cover cache). Disabling
+# persistence means the board resets on every restart — fine for a
+# throwaway demo, wrong for a real install.
+persistence:
+  enabled: true
+  # Leave empty to use the cluster's default StorageClass.
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  # Point at a PVC you manage yourself instead of letting the chart
+  # create one (the chart's PVC is not deleted on `helm uninstall`).
+  existingClaim: ""
+  annotations: {}
+
+# ─── Service ─────────────────────────────────────────────────────────
+service:
+  type: ClusterIP
+  port: 80
+  # Only used when type is NodePort.
+  nodePort: ""
+  annotations: {}
+
+# ─── Ingress ─────────────────────────────────────────────────────────
+# One host → one Ingress. With the tailscale operator (className:
+# tailscale) the host becomes the tailnet device name and TLS is issued
+# by Tailscale itself — see examples/values.tailscale.yaml.
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  path: /
+  pathType: Prefix
+  annotations: {}
+  tls:
+    enabled: false
+    # Leave empty when the controller issues its own cert (tailscale).
+    secretName: ""
+
+# ─── Integration configuration ───────────────────────────────────────
+# Every integration can also be configured from its card's settings UI,
+# which stores credentials server-side on the data volume. Setting them
+# here instead pins them to the deployment: the cards then show
+# "managed by the server environment" and hide their connect forms.
+#
+# Two ways to supply secrets:
+#   1. Inline below → rendered into a Secret this chart owns.
+#   2. `existingSecret` → a Secret you manage (sealed-secrets,
+#      external-secrets, vault, …) holding any of these keys:
+#        CALIBRE_BASE_URL, CALIBRE_USER, CALIBRE_PASSWORD,
+#        CALENDAR_ICS_URL,
+#        ADGUARD_BASE_URL, ADGUARD_USER, ADGUARD_PASSWORD
+integrations:
+  existingSecret: ""
+
+  calibre:
+    baseUrl: ""
+    user: ""
+    password: ""
+
+  calendar:
+    # iCal feed URL — treat as a secret; it is a capability token.
+    icsUrl: ""
+
+  adguard:
+    baseUrl: ""
+    user: ""
+    password: ""
+
+# Extra environment variables for the container (non-sensitive).
+extraEnv: []
+# - name: TZ
+#   value: Europe/London
+
+# Extra env sourced from existing ConfigMaps/Secrets.
+extraEnvFrom: []
+# - secretRef:
+#     name: my-extra-secret

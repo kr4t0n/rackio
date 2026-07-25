@@ -1,0 +1,32 @@
+apiVersion: v2
+name: rackio
+description: |
+  Rackio — a grid-based dashboard for the services on your rack. This chart
+  deploys the single rackio container (React SPA + Hono API in one process)
+  with a PersistentVolumeClaim for its board layout, integration
+  credentials, and cover cache. No database is required — rackio stores
+  state as JSON files on that volume.
+type: application
+
+# Chart version is independent of the app it ships. Bump on chart changes;
+# `helm package` refuses to overwrite an existing tarball, so bumping this
+# field is the release action (see helm-publish.yml).
+version: 0.1.0
+# App version tracks the Docker image tag pulled by default.
+#
+# 0.1.0 is the first published release: the board engine (drag, three
+# footprints, per-card settings) plus the weather, adguard, downloader,
+# calendar, calibre, service-tile, time, and utility cards.
+appVersion: "0.1.0"
+
+home: https://github.com/kr4t0n/rackio
+sources:
+  - https://github.com/kr4t0n/rackio
+keywords:
+  - rackio
+  - dashboard
+  - homelab
+  - self-hosted
+maintainers:
+  - name: kr4t0n
+    url: https://github.com/kr4t0n

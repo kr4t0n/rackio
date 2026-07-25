@@ -1,0 +1,64 @@
+# ─────────────────────────────────────────────────────────────────────
+# Rackio on Kubernetes — Tailscale Ingress example
+#
+# The Ingress object becomes its own tailnet device, so the board gets an
+# auto-issued HTTPS cert from Tailscale and is reachable at
+# https://rackio.<your-tailnet>.ts.net (and as `rackio` via MagicDNS
+# from inside the tailnet).
+#
+# Prerequisite: the Tailscale Kubernetes operator is installed —
+#   https://tailscale.com/kb/1236/kubernetes-operator
+#
+# Install:
+#   helm repo add rackio https://kr4t0n.github.io/rackio/helm
+#   helm install rackio rackio/rackio \
+#     --namespace rackio --create-namespace \
+#     -f examples/values.tailscale.yaml
+# ─────────────────────────────────────────────────────────────────────
+
+ingress:
+  enabled: true
+  className: tailscale
+  # Becomes the tailnet device name.
+  host: rackio
+  path: /
+  pathType: Prefix
+  tls:
+    # Required: it's how the tailscale controller learns the device name.
+    enabled: true
+    # Left empty — Tailscale issues and manages the cert itself.
+    secretName: ""
+  # Optional: pin the device to an ACL tag, or expose it publicly.
+  # annotations:
+  #   tailscale.com/tags: "tag:rackio"
+  #   tailscale.com/funnel: "true"
+  annotations: {}
+
+# The board, saved integration credentials, and the Calibre cover cache
+# live here. Longhorn/local-path/NFS all work — any RWO class will do.
+persistence:
+  enabled: true
+  storageClass: ""    # cluster default
+  size: 1Gi
+
+# Integrations are normally connected from each card's settings UI, which
+# stores credentials on the volume above. Uncomment to pin them to the
+# deployment instead (cards then show "managed by the server environment").
+#
+# integrations:
+#   existingSecret: rackio-integrations   # keys: CALIBRE_*, CALENDAR_ICS_URL, ADGUARD_*
+#
+# Or inline (rendered into a chart-owned Secret):
+# integrations:
+#   calibre:
+#     baseUrl: https://book.example.com
+#     user: rackio
+#     password: change-me
+#   adguard:
+#     baseUrl: http://192.168.1.2:3000
+#     user: rackio
+#     password: change-me
+
+# Reaching LAN services (AdGuard, torrent clients, Calibre) happens from
+# the POD, not your browser — make sure the addresses you configure are
+# routable from inside the cluster.
