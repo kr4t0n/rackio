@@ -57,12 +57,21 @@ jobs:
 
       - name: Bootstrap gh-pages if missing
         if: steps.pages.outcome == 'failure'
+        env:
+          ORIGIN: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
         run: |
           set -euo pipefail
           mkdir -p pages
           cd pages
-          git init -b gh-pages
-          git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          # The failed checkout above may have already run `git init` and
+          # added a remote, so every step here has to be idempotent.
+          [ -d .git ] || git init
+          git symbolic-ref HEAD refs/heads/gh-pages
+          if git remote get-url origin >/dev/null 2>&1; then
+            git remote set-url origin "$ORIGIN"
+          else
+            git remote add origin "$ORIGIN"
+          fi
           git config user.name  'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           # .nojekyll keeps Pages from swallowing files; the placeholder
