@@ -178,7 +178,11 @@ function SettingsPanel({
           </div>
 
           <div className="mt-5">
-            <Settings draft={draft} onChange={setDraft} />
+            <Settings
+              draft={draft}
+              onChange={setDraft}
+              instanceId={card.id}
+            />
           </div>
 
           <div className="mt-6 flex justify-end gap-2">

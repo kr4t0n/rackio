@@ -11,6 +11,9 @@ export interface CardComponentProps<C> {
 export interface CardSettingsProps<C> {
   draft: C;
   onChange: (draft: C) => void;
+  /** The card instance being edited — for per-instance server state
+   *  (e.g. the downloader's own client connection). */
+  instanceId: string;
 }
 
 /**
@@ -37,6 +40,7 @@ import { adguardCard } from "./adguard";
 import { calendarCard } from "./calendar";
 import { calibreCard } from "./calibre";
 import { clockCard } from "./clock";
+import { downloaderCard } from "./downloader";
 import { serviceTileCard } from "./service-tile";
 import { utilityCard } from "./utility";
 import { weatherCard } from "./weather";
@@ -46,6 +50,7 @@ import { weatherCard } from "./weather";
 const definitions = [
   weatherCard,
   adguardCard,
+  downloaderCard,
   calendarCard,
   calibreCard,
   serviceTileCard,

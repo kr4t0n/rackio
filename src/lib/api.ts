@@ -231,3 +231,88 @@ export function saveAdguardConnection(connection: {
 export function clearAdguardConnection(): Promise<void> {
   return request("/api/adguard/connection", { method: "DELETE" });
 }
+
+export type DownloaderKind = "qbittorrent" | "transmission";
+
+export type TransferState =
+  | "downloading"
+  | "seeding"
+  | "queued"
+  | "paused"
+  | "checking"
+  | "done";
+
+export interface DownloaderTransfer {
+  id: string;
+  name: string;
+  progress: number;
+  state: TransferState;
+  downSpeed: number;
+  upSpeed: number;
+  eta?: number;
+}
+
+export interface DownloaderStats {
+  configured: boolean;
+  kind?: DownloaderKind;
+  clientName?: string;
+  downSpeed?: number;
+  upSpeed?: number;
+  activeCount?: number;
+  totalCount?: number;
+  transfers?: DownloaderTransfer[];
+  history?: number[];
+  historyAges?: number[];
+  error?: "unauthorized" | "unreachable" | "not-client";
+}
+
+/** Downloader endpoints are per card instance — several clients coexist. */
+export function fetchDownloaderStats(instanceId: string): Promise<DownloaderStats> {
+  return request<DownloaderStats>(`/api/downloader/${instanceId}/stats`);
+}
+
+export interface DownloaderConnectionStatus {
+  configured: boolean;
+  kind?: DownloaderKind;
+  baseUrl?: string;
+  user?: string;
+  label?: string;
+}
+
+export function fetchDownloaderConnection(
+  instanceId: string,
+): Promise<DownloaderConnectionStatus> {
+  return request<DownloaderConnectionStatus>(
+    `/api/downloader/${instanceId}/connection`,
+  );
+}
+
+export interface DownloaderConnectResult {
+  ok: boolean;
+  transfers?: number;
+  error?: "unauthorized" | "unreachable" | "not-client";
+}
+
+export function saveDownloaderConnection(
+  instanceId: string,
+  connection: {
+    kind: DownloaderKind;
+    baseUrl: string;
+    user: string;
+    password: string;
+    label?: string;
+  },
+): Promise<DownloaderConnectResult> {
+  return request<DownloaderConnectResult>(
+    `/api/downloader/${instanceId}/connection`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(connection),
+    },
+  );
+}
+
+export function clearDownloaderConnection(instanceId: string): Promise<void> {
+  return request(`/api/downloader/${instanceId}/connection`, { method: "DELETE" });
+}
