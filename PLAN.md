@@ -216,7 +216,11 @@ Kyle's instance (progress may be Kobo-sync-only — if unavailable, ship
 "recently added/read" and deep links, drop the % bar). Then connector + card in all
 three footprints, cover proxying, deep links into Calibre-Web.
 
-**M5 — Ship on the cluster**
+**M5 — Ship on the cluster** ✅ *(done 2026-07-25. Mirrors argus's release
+pipeline: `docker-publish.yml` builds multi-arch on native runners and merges
+a manifest on Docker Hub; `helm-publish.yml` packages `helm/rackio` to the
+`gh-pages` branch, served at kr4t0n.github.io/rackio/helm. Chart is
+single-replica with a kept PVC — no HA, per the storage decision.)*
 Final deploy target is Kyle's k8s cluster: **Helm chart** (Deployment, Service,
 optional Ingress, **PVC for `/data`** so `board.json` survives pod restarts, values
 for env/secrets — Calibre creds via Secret). Also compose.yaml for quick non-cluster

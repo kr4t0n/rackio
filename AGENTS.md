@@ -66,7 +66,13 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   Postgres** (only for multi-replica or true multi-user, neither planned).
   New cards keep live data in memory caches or `data/` files (see covers);
   anything row-shaped means the SQLite rung, not an ad-hoc store.
-- **Deployment target** is a k8s cluster via Helm (M5); Docker is packaging.
+- **Deployment target** is a k8s cluster via Helm; Docker is packaging.
+  Release pipeline mirrors the argus project: `docker-publish.yml`
+  (multi-arch, native runners, push-by-digest then merge manifest) and
+  `helm-publish.yml` (packages `helm/rackio` onto the `gh-pages` branch,
+  served at https://kr4t0n.github.io/rackio/helm). Publishing a chart =
+  bumping `version:` in Chart.yaml; `helm package` won't overwrite an
+  existing tarball. Both need `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN`.
 
 ## Conventions
 
@@ -84,6 +90,17 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   hover/active/focus-visible behavior from `controls.tsx`.
 
 ## Gotchas
+
+- **The chart is deliberately single-replica with `strategy: Recreate`** —
+  rackio writes JSON state to a ReadWriteOnce volume from one process, so a
+  second replica would race it and a RollingUpdate would deadlock waiting
+  for the volume. Don't "helpfully" add `replicaCount`.
+- **Container runs as non-root (uid 1000)** — hence `CMD` invokes
+  `node_modules/.bin/tsx` directly: `npx` needs a writable HOME for its
+  cache and dies under a restricted securityContext. The chart sets
+  `fsGroup: 1000` so the mounted volume is writable.
+- **The PVC carries `helm.sh/resource-policy: keep`** — uninstalling a
+  release must not delete the board and saved credentials.
 
 - **Theme**: `html[data-theme]` drives every color via CSS vars. An inline
   script in `index.html` applies the persisted theme pre-paint (no FOUC) —

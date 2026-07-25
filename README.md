@@ -140,12 +140,56 @@ data/           runtime state (gitignored; board.json)
 
 ## Deployment
 
+### Kubernetes (Helm)
+
+The chart is published to GitHub Pages and the image to Docker Hub
+(`kr4t0n/rackio`, multi-arch amd64 + arm64):
+
 ```bash
-docker build -t rackio .
-docker run -d -p 8787:8787 -v rackio-data:/app/data rackio
-# or: docker compose up -d
+helm repo add rackio https://kr4t0n.github.io/rackio/helm
+helm repo update
+helm install rackio rackio/rackio --namespace rackio --create-namespace
+```
+
+That gives you a single replica with a 1Gi PVC mounted at `/app/data`
+(board layout, integration credentials, cover cache) and a ClusterIP
+Service. To expose it on a tailnet with the Tailscale operator:
+
+```bash
+helm install rackio rackio/rackio -n rackio --create-namespace \
+  -f helm/rackio/examples/values.tailscale.yaml
+```
+
+Key values (full list in [helm/rackio/values.yaml](helm/rackio/values.yaml)):
+
+| Value | Default | Notes |
+| --- | --- | --- |
+| `image.tag` | `.Chart.AppVersion` | Pin a specific image |
+| `persistence.enabled` / `size` | `true` / `1Gi` | PVC is kept on uninstall |
+| `ingress.enabled` / `className` / `host` | `false` | One host → one Ingress |
+| `integrations.*` | empty | Optional: pin Calibre/Calendar/AdGuard credentials to the deployment instead of configuring them per card |
+
+Rackio reaches your services **from the pod**, so configured addresses
+must be routable from inside the cluster. It runs as a non-root user
+(uid 1000) with `fsGroup` making the volume writable.
+
+### Docker
+
+```bash
+docker run -d -p 8787:8787 -v rackio-data:/app/data kr4t0n/rackio
+# or, from a clone: docker compose up -d
 ```
 
 Bare-metal: `npm run build` + `npm run start` runs the whole app from one
-Node process. The final target is a Kubernetes cluster via a Helm chart (M5,
-PVC-backed `/app/data`, secrets via values).
+Node process.
+
+### Releasing
+
+* **Image** — pushes to `main` publish `:latest`, `:main`, `:sha-<short>`;
+  pushing a `v*` tag publishes the semver tags too.
+* **Chart** — bump `version:` in `helm/rackio/Chart.yaml` and merge to
+  `main`; `helm-publish` packages it to the `gh-pages` branch. `helm
+  package` refuses to overwrite an existing version, so the bump *is* the
+  release.
+* Both workflows need the `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` repo
+  secrets.
