@@ -55,6 +55,40 @@ npm run dev:server # API server only
 The Vite dev server proxies `/api/*` to the API server, so the app is used via
 http://localhost:5173 in development.
 
+### Shell modes
+
+The SPA renders two shells, selected by the `shell` query parameter:
+
+| URL | Shell | What it is |
+| --- | --- | --- |
+| `/` | `app` | The normal dashboard — topbar, blueprint background, edit mode. |
+| `/?shell=wallpaper` | `wallpaper` | Transparent, chrome-less, read-only. Cards only. |
+
+The wallpaper shell exists for the macOS desktop app (see below). It never
+writes the board back to the server; it polls `/api/board` once a minute so
+edits made in a browser reach it. Open it in a browser any time to see what
+the desktop app renders.
+
+## macOS desktop app
+
+`mac/` is a small AppKit app that puts the live board on your desktop
+wallpaper — a transparent `WKWebView` pinned to the desktop window level,
+loading this same SPA with `?shell=wallpaper`. It is a viewer: the rackio
+server keeps running on the rack, and the Mac is just another client.
+
+```bash
+cd mac
+./build.sh --run     # needs the Xcode command line tools
+```
+
+It runs as a status bar item (no Dock icon); point it at your rackio host from
+**Board URL…**. See [mac/README.md](mac/README.md) for the status menu, how the
+desktop-level window works, and the known limitations.
+
+Note this is *not* a WidgetKit widget — those are SwiftUI-only and cannot run
+a web view, so the animated cards could not exist in one. `mac/README.md`
+explains the trade-off.
+
 ## Build, test, lint
 
 ```bash
@@ -133,6 +167,7 @@ server/         Hono API server; serves dist/ in production
 shared/         types + zod schemas shared by SPA and server
 scripts/        dev utilities (screenshots, board smoke test)
 data/           runtime state (gitignored): board.json, connections.json, covers/
+mac/            macOS wallpaper app (Swift/AppKit, builds with swiftc)
 ```
 
 ## Deployment

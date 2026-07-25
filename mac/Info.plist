@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>Rackio Wallpaper</string>
+	<key>CFBundleDisplayName</key>
+	<string>Rackio Wallpaper</string>
+	<key>CFBundleIdentifier</key>
+	<string>dev.kr4t0n.rackio.wallpaper</string>
+	<key>CFBundleExecutable</key>
+	<string>RackioWallpaper</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<!-- No Dock icon: the app lives in the status bar. -->
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<!-- rackio is served over plain HTTP on a LAN or tailnet, which ATS blocks
+	     by default. NSAllowsLocalNetworking only covers .local and link-local
+	     addresses, not the 192.168/10/100.64 ranges a rack actually uses, so
+	     this is the setting that works. Safe here: locally built, unsandboxed,
+	     never distributed — but it is why this app is not App Store material. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+</dict>
+</plist>

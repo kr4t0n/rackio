@@ -3,6 +3,7 @@ import type { Footprint } from "@shared/types";
 import { announce } from "@/app/announcer";
 import { CompactButton } from "@/app/controls";
 import { CheckIcon, PencilIcon, PlusIcon } from "@/app/icons";
+import { isWallpaper } from "@/app/shell";
 import { getCardDefinition } from "@/cards/registry";
 import { BoardGrid } from "./BoardGrid";
 import { CardFrame } from "./CardFrame";
@@ -98,8 +99,19 @@ export function Board() {
 
   const sortedCards = [...board.cards].sort((a, b) => a.y - b.y || a.x - b.x);
 
+  // The wallpaper shell is a viewer: no heading, no blueprint grid (the
+  // wallpaper shows through instead), and no path into edit mode.
+  const canEdit = !isWallpaper;
+
   return (
-    <main className="board-blueprint relative min-h-[calc(100dvh-68px)] p-[clamp(18px,3vw,42px)]">
+    <main
+      className={`relative p-[clamp(18px,3vw,42px)] ${
+        isWallpaper
+          ? "min-h-dvh"
+          : "board-blueprint min-h-[calc(100dvh-68px)]"
+      }`}
+    >
+      {canEdit && (
       <div className="mb-[22px] flex items-end justify-between gap-6 max-md:flex-col max-md:items-start">
         <div>
           <p className="m-0 mb-[5px] text-[11px] font-semibold tracking-[0.09em] uppercase text-accent">
@@ -142,6 +154,7 @@ export function Board() {
           </div>
         )}
       </div>
+      )}
 
       {!ready ? (
         <section aria-label="Rackio service cards" className="min-h-[620px]" />
@@ -172,7 +185,7 @@ export function Board() {
         <section aria-label="Rackio service cards">
           <BoardGrid
             board={board}
-            editMode={editMode}
+            editMode={editMode && canEdit}
             onPositionsChange={(positions) =>
               dispatch({ kind: "set-positions", positions })
             }
@@ -183,23 +196,27 @@ export function Board() {
         </section>
       )}
 
-      <CatalogDrawer
-        open={catalogOpen}
-        countByType={board.cards.reduce<Record<string, number>>(
-          (counts, card) => {
-            counts[card.type] = (counts[card.type] ?? 0) + 1;
-            return counts;
-          },
-          {},
-        )}
-        onAdd={addCard}
-        onClose={() => setCatalogOpen(false)}
-      />
-      <SettingsOverlay
-        target={settingsTarget}
-        onSave={saveSettings}
-        onClose={() => setSettingsTarget(null)}
-      />
+      {canEdit && (
+        <>
+          <CatalogDrawer
+            open={catalogOpen}
+            countByType={board.cards.reduce<Record<string, number>>(
+              (counts, card) => {
+                counts[card.type] = (counts[card.type] ?? 0) + 1;
+                return counts;
+              },
+              {},
+            )}
+            onAdd={addCard}
+            onClose={() => setCatalogOpen(false)}
+          />
+          <SettingsOverlay
+            target={settingsTarget}
+            onSave={saveSettings}
+            onClose={() => setSettingsTarget(null)}
+          />
+        </>
+      )}
     </main>
   );
 }

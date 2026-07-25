@@ -12,6 +12,12 @@
         if (localStorage.getItem("rackio-theme") === "light") {
           document.documentElement.dataset.theme = "light";
         }
+        // Wallpaper shell: go transparent before first paint so the macOS
+        // desktop app never flashes an opaque rectangle over the wallpaper.
+        // Mirrors src/app/shell.ts — keep the two in sync.
+        if (new URLSearchParams(location.search).get("shell") === "wallpaper") {
+          document.documentElement.dataset.shell = "wallpaper";
+        }
       } catch {}
     </script>
   </head>

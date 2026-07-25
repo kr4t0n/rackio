@@ -98,6 +98,17 @@ html[data-theme="light"] {
   }
 }
 
+/* Wallpaper shell — the macOS desktop app (mac/) renders the board over the
+   user's own wallpaper in a transparent WKWebView, so the page must paint no
+   background of its own and must never scroll (there is nothing to scroll
+   with). Cards keep their frosted surfaces; only the page beneath goes away.
+   Deliberately unlayered so it beats the @layer base body background. */
+html[data-shell="wallpaper"],
+html[data-shell="wallpaper"] body {
+  background: transparent;
+  overflow: hidden;
+}
+
 /* react-grid-layout: restyle the drag placeholder + lift dragging cards.
    The grid item's transform belongs to RGL — visual effects go on the inner
    .card-frame, never on .react-grid-item itself. */

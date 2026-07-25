@@ -48,6 +48,12 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   `dist/`. `store.ts` persists `board.json` (atomic temp-file + rename,
   serialized writes). `connectors/` holds one file per integration —
   `ping.ts` so far.
+- `mac/` — the macOS wallpaper app: ~400 lines of AppKit that host the SPA in
+  a transparent `WKWebView` pinned to the desktop window level, so the board
+  sits live on the wallpaper. Built by `mac/build.sh` (swiftc + a
+  hand-assembled bundle; no Xcode project, no SwiftPM manifest). It is a
+  *viewer* — it never writes the board, and no connector or credential logic
+  lives there. `mac/README.md` is the detail.
 - `shared/` — types + zod schemas used by both sides (`Footprint`,
   `CardInstance`, `BoardState`, `board-schema.ts`). Import via relative path
   with explicit `.ts` extension (see gotchas).
@@ -71,6 +77,16 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   anything row-shaped means the SQLite rung, not an ad-hoc store.
 - **Integration credentials are UI-only (decided 2026-07-25).** No
   environment variables, no chart values — see the gotcha below.
+- **The Mac app is a desktop-level web view, not a WidgetKit widget
+  (decided 2026-07-25).** macOS has two things that live on the wallpaper.
+  WidgetKit widgets are SwiftUI view trees rendered out-of-process on a
+  refresh budget — no web view, no JS, no animation loop, so the three.js
+  weather sky and every React card are impossible there; a widget port means
+  a parallel Swift reimplementation of the whole card system. A desktop-level
+  `NSWindow` runs the existing SPA verbatim. "Alive on the wallpaper" only
+  describes the second, so that is what `mac/` does. Real widgets remain
+  open as a *separate, additive* idea (a few deliberately static glances —
+  block %, next event), not as a port of the board.
 - **Deployment target** is a k8s cluster via Helm; Docker is packaging.
   Release pipeline mirrors the argus project: `docker-publish.yml`
   (multi-arch, native runners, push-by-digest then merge manifest) and
@@ -107,6 +123,20 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
 - **The PVC carries `helm.sh/resource-policy: keep`** — uninstalling a
   release must not delete the board and saved credentials.
 
+- **Two shells, one SPA**: `src/app/shell.ts` resolves `?shell=wallpaper` into
+  `isWallpaper`, which drops the topbar, the blueprint background, the board
+  heading, and every edit affordance. It resolves once at module load (the
+  mode is fixed for the document's lifetime) — don't turn it into state or
+  context. Like the theme, index.html mirrors it in a pre-paint inline script,
+  because the macOS app must not flash an opaque rectangle over the wallpaper.
+  The transparency rule in `tokens.css` is deliberately **unlayered** so it
+  beats `@layer base`'s `body { background: var(--bg) }`.
+- **The wallpaper shell must never write the board.** It is a second
+  long-lived client of the same `/api/board`; a stale cache pushing back would
+  clobber real edits. `useBoardState({ readOnly })` defaults to `isWallpaper`:
+  it still keeps the localStorage warm cache (so a cold launch paints the real
+  board) but skips the debounced PUT, skips the pagehide flush, and instead
+  polls once a minute so browser edits reach the desktop.
 - **Theme**: `html[data-theme]` drives every color via CSS vars. An inline
   script in `index.html` applies the persisted theme pre-paint (no FOUC) —
   keep it in sync with `src/app/theme.ts` (`rackio-theme` localStorage key).
@@ -293,6 +323,14 @@ polish is high — compare against the reference design in `.argus/uploads/`.
 
 - Card drag is pointer-only; keyboard move actions (via card menu) are a
   planned follow-up.
+- **The weather scene renders continuously in the wallpaper shell.** A desktop
+  window is always "visible", so there is no tab-hidden throttling — on a
+  laptop this is the Mac app's main battery cost. `engine.ts` should take a
+  frame cap (or pause on `isWallpaper`) before the app is used daily.
+- The wallpaper shell clips anything past the screen edge (`overflow: hidden`
+  — there is nothing to scroll with on a desktop). A board taller than the
+  display silently loses its bottom cards; a "fit to screen" arrangement or a
+  per-shell layout is the fix if this bites.
 - "Reset board" from the reference design was deliberately dropped (Kyle:
   demo-only affordance) — don't reintroduce it.
 - Service-tile icons are auto-monograms; real service icons (or a picker)
