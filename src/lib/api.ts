@@ -126,3 +126,51 @@ export function saveCalibreConnection(connection: {
 export function clearCalibreConnection(): Promise<void> {
   return request("/api/calibre/connection", { method: "DELETE" });
 }
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  location?: string;
+  notes?: string;
+}
+
+export interface CalendarFeed {
+  configured: boolean;
+  events?: CalendarEvent[];
+  error?: "unreachable" | "not-ics";
+}
+
+export function fetchCalendarEvents(): Promise<CalendarFeed> {
+  return request<CalendarFeed>("/api/calendar/events");
+}
+
+export interface CalendarConnectionStatus {
+  configured: boolean;
+  source?: "env" | "saved";
+  host?: string;
+}
+
+export function fetchCalendarConnection(): Promise<CalendarConnectionStatus> {
+  return request<CalendarConnectionStatus>("/api/calendar/connection");
+}
+
+export interface CalendarConnectResult {
+  ok: boolean;
+  events?: number;
+  error?: "unreachable" | "not-ics";
+}
+
+export function saveCalendarConnection(url: string): Promise<CalendarConnectResult> {
+  return request<CalendarConnectResult>("/api/calendar/connection", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  });
+}
+
+export function clearCalendarConnection(): Promise<void> {
+  return request("/api/calendar/connection", { method: "DELETE" });
+}

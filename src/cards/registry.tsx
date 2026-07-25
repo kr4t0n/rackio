@@ -33,6 +33,7 @@ export interface CardDefinition<C = unknown> {
 }
 
 /* Card type modules register here. Order defines catalog order. */
+import { calendarCard } from "./calendar";
 import { calibreCard } from "./calibre";
 import { clockCard } from "./clock";
 import { serviceTileCard } from "./service-tile";
@@ -43,6 +44,7 @@ import { weatherCard } from "./weather";
 // schema is the runtime source of truth for its own config shape.
 const definitions = [
   weatherCard,
+  calendarCard,
   calibreCard,
   serviceTileCard,
   clockCard,
