@@ -174,3 +174,60 @@ export function saveCalendarConnection(url: string): Promise<CalendarConnectResu
 export function clearCalendarConnection(): Promise<void> {
   return request("/api/calendar/connection", { method: "DELETE" });
 }
+
+export interface AdguardRank {
+  name: string;
+  count: number;
+}
+
+export interface AdguardStats {
+  configured: boolean;
+  protectionEnabled?: boolean;
+  queries?: number;
+  blocked?: number;
+  threats?: number;
+  blockRate?: number;
+  avgProcessingMs?: number;
+  series?: number[];
+  timeUnit?: "hours" | "days";
+  topBlockedDomains?: AdguardRank[];
+  topClients?: AdguardRank[];
+  error?: "unauthorized" | "unreachable" | "not-adguard";
+}
+
+export function fetchAdguardStats(): Promise<AdguardStats> {
+  return request<AdguardStats>("/api/adguard/stats");
+}
+
+export interface AdguardConnectionStatus {
+  configured: boolean;
+  source?: "env" | "saved";
+  baseUrl?: string;
+  user?: string;
+}
+
+export function fetchAdguardConnection(): Promise<AdguardConnectionStatus> {
+  return request<AdguardConnectionStatus>("/api/adguard/connection");
+}
+
+export interface AdguardConnectResult {
+  ok: boolean;
+  queries?: number;
+  error?: "unauthorized" | "unreachable" | "not-adguard";
+}
+
+export function saveAdguardConnection(connection: {
+  baseUrl: string;
+  user: string;
+  password: string;
+}): Promise<AdguardConnectResult> {
+  return request<AdguardConnectResult>("/api/adguard/connection", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(connection),
+  });
+}
+
+export function clearAdguardConnection(): Promise<void> {
+  return request("/api/adguard/connection", { method: "DELETE" });
+}
