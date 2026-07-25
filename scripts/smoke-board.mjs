@@ -27,12 +27,14 @@ function check(name, condition) {
 const FIXTURE = {
   version: 1,
   cards: [
-    { id: "clock-default", type: "clock", footprint: "wide", x: 0, y: 0,
-      config: { label: "Home rack", use24h: true, showSeconds: false } },
-    { id: "utility-rack-health", type: "utility", footprint: "wide", x: 4, y: 0,
-      config: { title: "Rack health", state: "Ready to connect", caption: "…" } },
-    { id: "utility-storage", type: "utility", footprint: "small", x: 8, y: 0,
-      config: { title: "Storage", state: "No source yet", caption: "…" } },
+    { id: "time-default", type: "clock", footprint: "wide", x: 0, y: 0,
+      config: { hour12: false, zones: ["UTC"] } },
+    // Service tiles stand in for the removed utility card: they render
+    // without any connection and carry a text field the settings test edits.
+    { id: "svc-a", type: "service-tile", footprint: "wide", x: 4, y: 0,
+      config: { name: "Rack health", url: "", ping: false } },
+    { id: "svc-b", type: "service-tile", footprint: "small", x: 8, y: 0,
+      config: { name: "Storage", url: "", ping: false } },
   ],
 };
 await page.goto(base, { waitUntil: "networkidle" });
@@ -92,7 +94,7 @@ const smallBox = await storage.boundingBox();
 await storage.getByRole("button", { name: "big footprint" }).click();
 await page.waitForTimeout(400);
 const bigBox = await page
-  .locator('[data-card-type="utility"][data-footprint="big"]')
+  .locator('[data-card-type="service-tile"][data-footprint="big"]')
   .first()
   .boundingBox();
 check(
@@ -100,14 +102,14 @@ check(
   bigBox && bigBox.width > smallBox.width * 1.8,
 );
 
-// Settings: open the utility card's settings, rename, save.
+// Settings: open a service tile's settings, rename, save.
 await page
-  .getByRole("button", { name: "Open Utility placeholder settings" })
+  .getByRole("button", { name: "Open Service tile settings" })
   .first()
   .click();
 await page.waitForTimeout(700);
 await page.screenshot({ path: "/tmp/rackio-m1-settings.png" });
-const labelInput = page.getByLabel("Title");
+const labelInput = page.getByLabel("Service name");
 await labelInput.fill("Kyle's rack");
 await page.getByRole("button", { name: "Save" }).click();
 await page.waitForTimeout(500);

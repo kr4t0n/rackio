@@ -5,42 +5,34 @@ import { getCardDefinition } from "@/cards/registry";
 
 export const BOARD_STORAGE_KEY = "rackio-board";
 
+/**
+ * The board a brand-new install starts with. Deliberately only cards that
+ * are live with zero configuration — the rest are one click away in the
+ * catalog, and an opening screen full of "not connected" states would sell
+ * the board short.
+ */
 export function defaultBoard(): BoardState {
   return {
     version: 1,
     cards: [
       {
-        id: "clock-default",
+        id: "time-default",
         type: "clock",
         footprint: "wide",
         x: 0,
         y: 0,
-        config: { label: "Home rack", use24h: true, showSeconds: false },
+        config: {
+          hour12: false,
+          zones: ["UTC", "America/New_York", "Europe/London", "Asia/Tokyo"],
+        },
       },
       {
-        id: "utility-rack-health",
-        type: "utility",
+        id: "weather-default",
+        type: "weather",
         footprint: "wide",
         x: 4,
         y: 0,
-        config: {
-          title: "Rack health",
-          state: "Ready to connect",
-          caption:
-            "Add your first monitoring service to surface health signals here.",
-        },
-      },
-      {
-        id: "utility-storage",
-        type: "utility",
-        footprint: "small",
-        x: 8,
-        y: 0,
-        config: {
-          title: "Storage",
-          state: "No source yet",
-          caption: "Storage cards inherit the same three footprints.",
-        },
+        config: { locationName: "London", lat: 51.5072, lon: -0.1276 },
       },
     ],
   };

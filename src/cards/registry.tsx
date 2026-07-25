@@ -42,7 +42,6 @@ import { calibreCard } from "./calibre";
 import { clockCard } from "./clock";
 import { downloaderCard } from "./downloader";
 import { serviceTileCard } from "./service-tile";
-import { utilityCard } from "./utility";
 import { weatherCard } from "./weather";
 
 // Config types are erased for the heterogeneous registry; each definition's
@@ -55,7 +54,6 @@ const definitions = [
   calibreCard,
   serviceTileCard,
   clockCard,
-  utilityCard,
 ] as unknown as ReadonlyArray<CardDefinition<never>>;
 
 export function listCardDefinitions(): ReadonlyArray<CardDefinition<never>> {

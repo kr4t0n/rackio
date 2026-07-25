@@ -27,8 +27,8 @@ expanded server-side), **calibre library** (fresh reads from Calibre-Web's
 OPDS catalog with proxied covers and deep links; connect from the card's
 settings — credentials are validated then stored server-side, never in the
 board), **service tile** (link + live health checks via the server's
-LAN-only probe), **time** (local clock with day progress plus up to four
-world clocks), and a utility placeholder. Docker packaging included. See
+LAN-only probe), and **time** (local clock with day progress plus up to four
+world clocks). Docker packaging included. See
 [PLAN.md](PLAN.md) for the full roadmap.
 
 ## Prerequisites

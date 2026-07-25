@@ -27,7 +27,10 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
     zod config schema + supported footprints + optional `maxInstances`); the
     board never knows card internals. Current types: `weather`, `adguard`,
     `downloader`, `calendar`, `calibre`, `service-tile`, `clock` (the Time
-    card — type key kept for board compatibility), `utility`.
+    card — type key kept for board compatibility). The `utility` placeholder
+    was removed once the real cards landed; boards that still reference it
+    drop the card on load via `sanitizeBoardState`, which is the intended
+    behaviour for any retired type.
   - `src/board/Sparkline.tsx` — shared activity chart (area + line, hover /
     keyboard crosshair and tooltip) used by adguard and downloader; callers
     supply value/label formatting.
