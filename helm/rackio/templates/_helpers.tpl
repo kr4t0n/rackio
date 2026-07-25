@@ -24,32 +24,6 @@ namespace.
 {{- end -}}
 
 {{/*
-Name of the Secret holding integration credentials — either the one the
-chart renders or a pre-existing one the user points at.
-*/}}
-{{- define "rackio.secretName" -}}
-{{- if .Values.integrations.existingSecret -}}
-{{- .Values.integrations.existingSecret -}}
-{{- else -}}
-{{- include "rackio.fullname" . -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-True when the chart should render its own Secret: only if no existing
-Secret is referenced AND at least one credential is set inline.
-*/}}
-{{- define "rackio.createSecret" -}}
-{{- if .Values.integrations.existingSecret -}}
-{{- else -}}
-{{- $i := .Values.integrations -}}
-{{- if or $i.calibre.baseUrl $i.calibre.user $i.calibre.password $i.calendar.icsUrl $i.adguard.baseUrl $i.adguard.user $i.adguard.password -}}
-true
-{{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
 Name of the PVC backing /app/data.
 */}}
 {{- define "rackio.pvcName" -}}

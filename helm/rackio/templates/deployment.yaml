@@ -31,11 +31,6 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       annotations:
-        {{- if include "rackio.createSecret" . }}
-        # Roll the pod when integration credentials change so a values-only
-        # `helm upgrade` actually takes effect.
-        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
-        {{- end }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -67,23 +62,6 @@ spec:
               value: {{ .Values.containerPort | quote }}
             - name: DATA_DIR
               value: /app/data
-            {{- $secretName := include "rackio.secretName" . }}
-            {{- $hasSecret := or .Values.integrations.existingSecret (include "rackio.createSecret" .) }}
-            {{- if $hasSecret }}
-            {{- /*
-              Every integration key is optional: `optional: true` lets the
-              same Secret serve an install that configures only some of
-              them (or none, when the cards are configured from the UI).
-            */}}
-            {{- range $key := list "CALIBRE_BASE_URL" "CALIBRE_USER" "CALIBRE_PASSWORD" "CALENDAR_ICS_URL" "ADGUARD_BASE_URL" "ADGUARD_USER" "ADGUARD_PASSWORD" }}
-            - name: {{ $key }}
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $secretName }}
-                  key: {{ $key }}
-                  optional: true
-            {{- end }}
-            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

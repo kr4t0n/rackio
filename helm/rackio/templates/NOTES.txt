@@ -34,12 +34,11 @@ pod restarts. Set persistence.enabled=true for a real install.
 
 Next steps:
   * Add cards from the board's edit mode ("Edit board" → "Add card").
-  * Connect integrations from each card's settings (gear icon). Those
-    credentials are stored on the data volume, never in the board file.
-{{- if or .Values.integrations.existingSecret (include "rackio.createSecret" .) }}
-  * Integration credentials are supplied by this release's values, so the
-    affected cards will show "managed by the server environment" instead
-    of a connect form.
-{{- end }}
+  * Connect each integration from its card's settings (gear icon). There
+    is no environment-variable path: credentials are entered in the UI,
+    validated against the live service, and stored on the data volume
+    (connections.json, mode 0600) — never in the board file.
+  * Services are reached FROM THE POD, so use addresses routable from
+    inside the cluster.
 
 Service health: kubectl --namespace {{ .Release.Namespace }} exec deploy/{{ include "rackio.fullname" . }} -- wget -qO- http://127.0.0.1:{{ .Values.containerPort }}/api/health

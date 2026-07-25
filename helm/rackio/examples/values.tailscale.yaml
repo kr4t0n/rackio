@@ -41,24 +41,10 @@ persistence:
   storageClass: ""    # cluster default
   size: 1Gi
 
-# Integrations are normally connected from each card's settings UI, which
-# stores credentials on the volume above. Uncomment to pin them to the
-# deployment instead (cards then show "managed by the server environment").
+# Integrations (Calibre, calendar, AdGuard, downloaders) are connected
+# from each card's settings once rackio is running — there is no chart
+# value or environment variable for them. Credentials are validated
+# against the live service and stored on the volume above.
 #
-# integrations:
-#   existingSecret: rackio-integrations   # keys: CALIBRE_*, CALENDAR_ICS_URL, ADGUARD_*
-#
-# Or inline (rendered into a chart-owned Secret):
-# integrations:
-#   calibre:
-#     baseUrl: https://book.example.com
-#     user: rackio
-#     password: change-me
-#   adguard:
-#     baseUrl: http://192.168.1.2:3000
-#     user: rackio
-#     password: change-me
-
-# Reaching LAN services (AdGuard, torrent clients, Calibre) happens from
-# the POD, not your browser — make sure the addresses you configure are
-# routable from inside the cluster.
+# Reaching LAN services happens from the POD, not your browser — make
+# sure the addresses you enter are routable from inside the cluster.

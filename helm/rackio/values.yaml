@@ -122,36 +122,6 @@ ingress:
     # Leave empty when the controller issues its own cert (tailscale).
     secretName: ""
 
-# ─── Integration configuration ───────────────────────────────────────
-# Every integration can also be configured from its card's settings UI,
-# which stores credentials server-side on the data volume. Setting them
-# here instead pins them to the deployment: the cards then show
-# "managed by the server environment" and hide their connect forms.
-#
-# Two ways to supply secrets:
-#   1. Inline below → rendered into a Secret this chart owns.
-#   2. `existingSecret` → a Secret you manage (sealed-secrets,
-#      external-secrets, vault, …) holding any of these keys:
-#        CALIBRE_BASE_URL, CALIBRE_USER, CALIBRE_PASSWORD,
-#        CALENDAR_ICS_URL,
-#        ADGUARD_BASE_URL, ADGUARD_USER, ADGUARD_PASSWORD
-integrations:
-  existingSecret: ""
-
-  calibre:
-    baseUrl: ""
-    user: ""
-    password: ""
-
-  calendar:
-    # iCal feed URL — treat as a secret; it is a capability token.
-    icsUrl: ""
-
-  adguard:
-    baseUrl: ""
-    user: ""
-    password: ""
-
 # Extra environment variables for the container (non-sensitive).
 extraEnv: []
 # - name: TZ
