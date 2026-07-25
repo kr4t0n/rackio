@@ -5,6 +5,15 @@
 
 export type Footprint = "small" | "big" | "wide";
 
+/**
+ * The board grows columns with the viewport rather than stretching cards:
+ * a wider screen holds MORE cards at the same size. 12 is the floor (the
+ * reference design's column count, and the minimum that fits a 4-wide card
+ * at x=8); the ceiling just bounds stored positions.
+ */
+export const BOARD_COLS_MIN = 12;
+export const BOARD_COLS_MAX = 48;
+
 /** Grid spans per footprint on the 12-column, square-cell board. */
 export const FOOTPRINT_SPANS: Record<Footprint, { w: number; h: number }> = {
   small: { w: 2, h: 2 },

@@ -110,14 +110,20 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
 - **Theme**: `html[data-theme]` drives every color via CSS vars. An inline
   script in `index.html` applies the persisted theme pre-paint (no FOUC) —
   keep it in sync with `src/app/theme.ts` (`rackio-theme` localStorage key).
-- **The board keeps a FIXED 12 columns; width is capped by
-  `--board-max-width` (tokens.css), not by adding columns.** Extra screen
-  width therefore makes cards bigger, not more numerous — at full ultrawide
-  width a 2×2 tile passes 540px and its content floats. Columns can't vary
-  with viewport while a single layout is stored: RGL clamps out-of-range x
-  positions, `onLayoutChange` persists the clamped result, and opening the
-  board on a narrower screen would permanently scramble the wide
-  arrangement. Per-breakpoint layouts would be the prerequisite.
+- **Columns scale with the board width; cards keep their size.** A wider
+  screen holds MORE cards, it does not stretch them —
+  `computeColumns()` picks a count that keeps cells near `TARGET_CELL_SIZE`
+  (~108px, the reference design's density), floored at `BOARD_COLS_MIN` (12,
+  the minimum that fits a 4-wide card at x=8) and capped at
+  `BOARD_COLS_MAX`, which also bounds `x` in the board schema.
+- **Positions persist on `onDragStop`, never `onLayoutChange`** — this is
+  what makes variable columns safe. Opening a wide board on a narrow screen
+  makes RGL clamp out-of-range `x` values and emit a layout change; saving
+  that would permanently squash the wide arrangement. Reflow after
+  add/remove/footprint changes is deterministic from the stored positions,
+  so it needs no persisting, and the next real drag writes the settled
+  layout. Verified: drag a card to x=18 at 3440px, open at 1440px, x stays
+  18. If you ever reinstate `onLayoutChange`, re-check that case.
 - **react-grid-layout v2** (not v1): config lives in `gridConfig` /
   `dragConfig` / `resizeConfig` objects, not flat props, and the package
   ships its own types plus a `useContainerWidth` hook (which drives the

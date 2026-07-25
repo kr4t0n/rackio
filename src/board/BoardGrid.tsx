@@ -6,7 +6,7 @@ import type { BoardState, Footprint } from "@shared/types";
 import { FOOTPRINT_SPANS } from "@shared/types";
 import { getCardDefinition } from "@/cards/registry";
 import { CardFrame } from "./CardFrame";
-import { BOARD_COLS, BOARD_GAP, computeCellSize } from "./grid-math";
+import { BOARD_GAP, computeCellSize, computeColumns } from "./grid-math";
 
 interface BoardGridProps {
   board: BoardState;
@@ -28,7 +28,10 @@ export function BoardGrid({
   onFootprintChange,
 }: BoardGridProps) {
   const { width, mounted, containerRef } = useContainerWidth();
-  const cellSize = computeCellSize(width);
+  // Columns follow the width so cards keep their size and a bigger board
+  // simply holds more of them.
+  const cols = computeColumns(width);
+  const cellSize = computeCellSize(width, cols);
 
   const layout: Layout = useMemo(
     () =>
@@ -42,13 +45,13 @@ export function BoardGrid({
   );
 
   return (
-    <div ref={containerRef} className="mx-auto min-h-[620px] max-w-[var(--board-max-width)]">
+    <div ref={containerRef} className="min-h-[620px]">
       {mounted && width > 0 && (
         <GridLayout
           width={width}
           layout={layout}
           gridConfig={{
-            cols: BOARD_COLS,
+            cols,
             rowHeight: cellSize,
             margin: [BOARD_GAP, BOARD_GAP],
             containerPadding: [0, 0],
@@ -58,7 +61,14 @@ export function BoardGrid({
             handle: ".card-drag-handle",
           }}
           resizeConfig={{ enabled: false }}
-          onLayoutChange={(next) =>
+          // Persist on drag stop, NOT onLayoutChange. With a variable column
+          // count, opening a wide board on a narrow screen makes RGL clamp
+          // x into range and fire a layout change — saving that would
+          // permanently squash the wide arrangement. Reflow after add /
+          // remove / footprint changes is deterministic from the stored
+          // positions, so it doesn't need persisting; the next real drag
+          // writes the settled layout anyway.
+          onDragStop={(next) =>
             onPositionsChange(next.map(({ i, x, y }) => ({ id: i, x, y })))
           }
         >

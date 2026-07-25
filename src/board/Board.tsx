@@ -100,7 +100,7 @@ export function Board() {
 
   return (
     <main className="board-blueprint relative min-h-[calc(100dvh-68px)] p-[clamp(18px,3vw,42px)]">
-      <div className="mx-auto mb-[22px] flex max-w-[var(--board-max-width)] items-end justify-between gap-6 max-md:flex-col max-md:items-start">
+      <div className="mb-[22px] flex items-end justify-between gap-6 max-md:flex-col max-md:items-start">
         <div>
           <p className="m-0 mb-[5px] text-[11px] font-semibold tracking-[0.09em] uppercase text-accent">
             Live board
