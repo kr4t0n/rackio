@@ -6,6 +6,14 @@ import { z } from "zod";
 import { validateBoardState } from "../shared/board-schema.ts";
 import { createConnectionStore } from "./connection-store.ts";
 import {
+  adguardBaseCandidates,
+  clearAdguardCache,
+  fetchStats,
+  getStats,
+  initAdguard,
+  resolveAdguardConnection,
+} from "./connectors/adguard.ts";
+import {
   clearCalendarCache,
   fetchFeed,
   getFeed,
@@ -43,6 +51,7 @@ const store = createBoardStore(dataDir);
 const connections = createConnectionStore(dataDir);
 initCalibre(connections, dataDir);
 initCalendar(connections);
+initAdguard(connections);
 
 const api = new Hono();
 
@@ -234,6 +243,70 @@ api.delete("/calendar/connection", async (c) => {
   }
   await connections.clearCalendar();
   clearCalendarCache();
+  return c.json({ ok: true });
+});
+
+api.get("/adguard/stats", async (c) => c.json(await getStats()));
+
+api.get("/adguard/connection", async (c) => {
+  const connection = await resolveAdguardConnection();
+  if (!connection) return c.json({ configured: false });
+  return c.json({
+    configured: true,
+    source: connection.source,
+    baseUrl: connection.baseUrl,
+    user: connection.user,
+  });
+});
+
+const adguardConnectionSchema = z.object({
+  baseUrl: z.string().min(1).max(200),
+  user: z.string().max(100),
+  password: z.string().max(200),
+});
+
+api.put("/adguard/connection", async (c) => {
+  const current = await resolveAdguardConnection();
+  if (current?.source === "env") {
+    return c.json({ error: "connection is managed by the server environment" }, 409);
+  }
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "invalid JSON" }, 400);
+  }
+  const parsed = adguardConnectionSchema.safeParse(body);
+  if (!parsed.success) return c.json({ error: "invalid connection details" }, 400);
+
+  let lastError: "unauthorized" | "unreachable" | "not-adguard" = "unreachable";
+  const candidates = adguardBaseCandidates(parsed.data.baseUrl);
+  if (candidates.length === 0) return c.json({ error: "invalid AdGuard URL" }, 400);
+  for (const baseUrl of candidates) {
+    const candidate = { ...parsed.data, baseUrl };
+    const stats = await fetchStats(candidate);
+    if (!stats.error) {
+      await connections.saveAdguard(candidate);
+      clearAdguardCache();
+      return c.json({ ok: true, queries: stats.queries ?? 0 });
+    }
+    if (
+      stats.error === "unauthorized" ||
+      (stats.error === "not-adguard" && lastError === "unreachable")
+    ) {
+      lastError = stats.error;
+    }
+  }
+  return c.json({ ok: false, error: lastError });
+});
+
+api.delete("/adguard/connection", async (c) => {
+  const current = await resolveAdguardConnection();
+  if (current?.source === "env") {
+    return c.json({ error: "connection is managed by the server environment" }, 409);
+  }
+  await connections.clearAdguard();
+  clearAdguardCache();
   return c.json({ ok: true });
 });
 

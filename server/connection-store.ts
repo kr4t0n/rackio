@@ -18,9 +18,16 @@ export interface CalendarConnection {
   url: string;
 }
 
+export interface AdguardConnection {
+  baseUrl: string;
+  user: string;
+  password: string;
+}
+
 interface ConnectionsFile {
   calibre?: CalibreConnection;
   calendar?: CalendarConnection;
+  adguard?: AdguardConnection;
 }
 
 export interface ConnectionStore {
@@ -30,6 +37,9 @@ export interface ConnectionStore {
   loadCalendar(): Promise<CalendarConnection | null>;
   saveCalendar(connection: CalendarConnection): Promise<void>;
   clearCalendar(): Promise<void>;
+  loadAdguard(): Promise<AdguardConnection | null>;
+  saveAdguard(connection: AdguardConnection): Promise<void>;
+  clearAdguard(): Promise<void>;
 }
 
 export function createConnectionStore(dataDir: string): ConnectionStore {
@@ -93,6 +103,25 @@ export function createConnectionStore(dataDir: string): ConnectionStore {
     clearCalendar() {
       return write((file) => {
         delete file.calendar;
+      });
+    },
+    async loadAdguard() {
+      const { adguard } = await read();
+      return adguard &&
+        typeof adguard.baseUrl === "string" &&
+        typeof adguard.user === "string" &&
+        typeof adguard.password === "string"
+        ? adguard
+        : null;
+    },
+    saveAdguard(connection: AdguardConnection) {
+      return write((file) => {
+        file.adguard = connection;
+      });
+    },
+    clearAdguard() {
+      return write((file) => {
+        delete file.adguard;
       });
     },
   };
