@@ -100,13 +100,14 @@ check(
   bigBox && bigBox.width > smallBox.width * 1.8,
 );
 
-// Settings: open clock settings, rename, save.
+// Settings: open the utility card's settings, rename, save.
 await page
-  .getByRole("button", { name: "Open Clock settings" })
+  .getByRole("button", { name: "Open Utility placeholder settings" })
+  .first()
   .click();
 await page.waitForTimeout(700);
 await page.screenshot({ path: "/tmp/rackio-m1-settings.png" });
-const labelInput = page.getByLabel("Label");
+const labelInput = page.getByLabel("Title");
 await labelInput.fill("Kyle's rack");
 await page.getByRole("button", { name: "Save" }).click();
 await page.waitForTimeout(500);
@@ -119,7 +120,7 @@ check(
 await page.getByRole("button", { name: "Add card" }).click();
 await page.waitForTimeout(500);
 await page.screenshot({ path: "/tmp/rackio-m1-catalog.png" });
-await page.getByRole("button", { name: "Add Clock card" }).click();
+await page.getByRole("button", { name: "Add Time card" }).click();
 await page.waitForTimeout(300);
 await page.keyboard.press("Escape");
 await page.waitForTimeout(300);
