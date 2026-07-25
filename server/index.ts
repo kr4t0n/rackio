@@ -42,11 +42,13 @@ import { assertSafeTarget, probe } from "./connectors/ping.ts";
 import { geocode, getWeather } from "./connectors/weather.ts";
 import { createBoardStore } from "./store.ts";
 
-// Load .env if present (secrets like CALIBRE_* live there, never in git).
+// Load .env if present, for local overrides of PORT/HOST/DATA_DIR.
+// Integration credentials are NOT read from the environment: every card is
+// connected from its own settings UI (see AGENTS.md).
 try {
   process.loadEnvFile();
 } catch {
-  // No .env file — environment comes from the process (Docker/k8s).
+  // No .env file — configuration comes from the process environment.
 }
 
 const isProduction = process.env.NODE_ENV === "production";
@@ -136,7 +138,6 @@ api.get("/calibre/connection", async (c) => {
   if (!connection) return c.json({ configured: false });
   return c.json({
     configured: true,
-    source: connection.source,
     baseUrl: connection.baseUrl,
     user: connection.user,
   });
@@ -155,10 +156,6 @@ const calibreConnectionSchema = z.object({
 
 // Validate against the live library first; only working credentials persist.
 api.put("/calibre/connection", async (c) => {
-  const current = await resolveConnection();
-  if (current?.source === "env") {
-    return c.json({ error: "connection is managed by the server environment" }, 409);
-  }
   let body: unknown;
   try {
     body = await c.req.json();
@@ -192,10 +189,6 @@ api.put("/calibre/connection", async (c) => {
 });
 
 api.delete("/calibre/connection", async (c) => {
-  const current = await resolveConnection();
-  if (current?.source === "env") {
-    return c.json({ error: "connection is managed by the server environment" }, 409);
-  }
   await connections.clearCalibre();
   clearCalibreCache();
   return c.json({ ok: true });
@@ -227,14 +220,10 @@ api.get("/calendar/connection", async (c) => {
   } catch {
     // keep the generic label
   }
-  return c.json({ configured: true, source: connection.source, host });
+  return c.json({ configured: true, host });
 });
 
 api.put("/calendar/connection", async (c) => {
-  const current = await resolveCalendarUrl();
-  if (current?.source === "env") {
-    return c.json({ error: "connection is managed by the server environment" }, 409);
-  }
   let body: unknown;
   try {
     body = await c.req.json();
@@ -252,10 +241,6 @@ api.put("/calendar/connection", async (c) => {
 });
 
 api.delete("/calendar/connection", async (c) => {
-  const current = await resolveCalendarUrl();
-  if (current?.source === "env") {
-    return c.json({ error: "connection is managed by the server environment" }, 409);
-  }
   await connections.clearCalendar();
   clearCalendarCache();
   return c.json({ ok: true });
@@ -268,7 +253,6 @@ api.get("/adguard/connection", async (c) => {
   if (!connection) return c.json({ configured: false });
   return c.json({
     configured: true,
-    source: connection.source,
     baseUrl: connection.baseUrl,
     user: connection.user,
   });
@@ -281,10 +265,6 @@ const adguardConnectionSchema = z.object({
 });
 
 api.put("/adguard/connection", async (c) => {
-  const current = await resolveAdguardConnection();
-  if (current?.source === "env") {
-    return c.json({ error: "connection is managed by the server environment" }, 409);
-  }
   let body: unknown;
   try {
     body = await c.req.json();
@@ -316,10 +296,6 @@ api.put("/adguard/connection", async (c) => {
 });
 
 api.delete("/adguard/connection", async (c) => {
-  const current = await resolveAdguardConnection();
-  if (current?.source === "env") {
-    return c.json({ error: "connection is managed by the server environment" }, 409);
-  }
   await connections.clearAdguard();
   clearAdguardCache();
   return c.json({ ok: true });

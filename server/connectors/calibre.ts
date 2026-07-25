@@ -8,9 +8,9 @@ import type {
 
 /**
  * Calibre-Web connector via its OPDS catalog (Atom XML). Connection settings
- * come from the card's settings UI (persisted server-side in DATA_DIR/
- * connections.json — never in board.json) or from CALIBRE_* env vars, which
- * take precedence when set (the k8s/Docker deployment path).
+ * come from the card's settings UI and are persisted server-side in
+ * DATA_DIR/connections.json — never in board.json, which every client can
+ * read.
  *
  * Note: Calibre-Web does not expose reading progress through any API
  * (it's Kobo-sync-only), so the card ships shelves + deep links, no % bar.
@@ -44,25 +44,9 @@ export function initCalibre(store: ConnectionStore, dataDir?: string): void {
   coversDir = dataDir ? join(dataDir, "covers") : null;
 }
 
-export type ConnectionSource = "env" | "saved";
-
-export interface ResolvedConnection extends CalibreConnection {
-  source: ConnectionSource;
-}
-
-/** Env vars win (deployment-managed); otherwise the UI-saved connection. */
-export async function resolveConnection(): Promise<ResolvedConnection | null> {
-  const envBase = process.env.CALIBRE_BASE_URL?.replace(/\/+$/, "");
-  if (envBase) {
-    return {
-      source: "env",
-      baseUrl: envBase,
-      user: process.env.CALIBRE_USER ?? "",
-      password: process.env.CALIBRE_PASSWORD ?? "",
-    };
-  }
-  const saved = await connectionStore?.loadCalibre();
-  return saved ? { ...saved, source: "saved" } : null;
+/** The connection saved from the card's settings UI, if any. */
+export async function resolveConnection(): Promise<CalibreConnection | null> {
+  return (await connectionStore?.loadCalibre()) ?? null;
 }
 
 export function authHeaders(connection: {

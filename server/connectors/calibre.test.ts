@@ -184,7 +184,7 @@ describe("connection resolution and shelf fetching", () => {
     return `http://127.0.0.1:${port}`;
   }
 
-  it("reports unconfigured with no env and no saved connection", async () => {
+  it("reports unconfigured with no saved connection", async () => {
     expect(await getShelf("new")).toEqual({ configured: false });
   });
 
@@ -194,7 +194,7 @@ describe("connection resolution and shelf fetching", () => {
     await store.saveCalibre(conn);
     const mode = (await stat(join(dir, "connections.json"))).mode & 0o777;
     expect(mode).toBe(0o600);
-    expect(await resolveConnection()).toEqual({ ...conn, source: "saved" });
+    expect(await resolveConnection()).toEqual(conn);
 
     const shelf = await getShelf("new");
     expect(shelf.error).toBeUndefined();
@@ -204,14 +204,14 @@ describe("connection resolution and shelf fetching", () => {
     expect(await resolveConnection()).toBeNull();
   });
 
-  it("lets env vars override a saved connection", async () => {
-    const store = createConnectionStore(dir);
-    await store.saveCalibre({ baseUrl: "http://saved", user: "a", password: "b" });
-    process.env.CALIBRE_BASE_URL = "http://from-env/";
-    const resolved = await resolveConnection();
-    expect(resolved?.source).toBe("env");
-    expect(resolved?.baseUrl).toBe("http://from-env");
-    await store.clearCalibre();
+  it("ignores CALIBRE_* environment variables entirely", async () => {
+    // Connections are UI-only by design: the environment must never
+    // silently point the card at a different library.
+    process.env.CALIBRE_BASE_URL = "http://from-env";
+    process.env.CALIBRE_USER = "env-user";
+    process.env.CALIBRE_PASSWORD = "env-pw";
+    expect(await resolveConnection()).toBeNull();
+    expect(await getShelf("new")).toEqual({ configured: false });
   });
 
   it("fetchShelf reports unauthorized on bad credentials", async () => {

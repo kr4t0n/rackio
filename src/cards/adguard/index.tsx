@@ -391,15 +391,6 @@ function AdguardSettings(props: CardSettingsProps<AdguardConfig>) {
 
   const status = connection.data;
 
-  if (status?.source === "env") {
-    return (
-      <div className="rounded-xl border border-border bg-bg px-3.5 py-3 text-xs leading-[1.5] text-muted">
-        Connected to <span className="text-fg">{status.baseUrl}</span> — managed
-        by the server environment (ADGUARD_* variables).
-      </div>
-    );
-  }
-
   if (status?.configured) {
     return (
       <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-bg px-3.5 py-3">

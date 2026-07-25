@@ -96,7 +96,6 @@ export function calibreCoverUrl(id: number): string {
 
 export interface CalibreConnectionStatus {
   configured: boolean;
-  source?: "env" | "saved";
   baseUrl?: string;
   user?: string;
 }
@@ -149,7 +148,6 @@ export function fetchCalendarEvents(): Promise<CalendarFeed> {
 
 export interface CalendarConnectionStatus {
   configured: boolean;
-  source?: "env" | "saved";
   host?: string;
 }
 
@@ -201,7 +199,6 @@ export function fetchAdguardStats(): Promise<AdguardStats> {
 
 export interface AdguardConnectionStatus {
   configured: boolean;
-  source?: "env" | "saved";
   baseUrl?: string;
   user?: string;
 }

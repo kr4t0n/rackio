@@ -3,8 +3,7 @@ import type { AdguardConnection, ConnectionStore } from "../connection-store.ts"
 /**
  * AdGuard Home connector. Talks to the instance's REST API (/control/…) with
  * HTTP basic auth. Connection settings come from the card's settings UI and
- * live in connections.json — never in board.json. ADGUARD_* env vars override
- * for deployment-managed setups, mirroring calibre/calendar.
+ * live in connections.json — never in board.json.
  */
 
 export interface AdguardRank {
@@ -35,22 +34,9 @@ export function initAdguard(store: ConnectionStore): void {
   connectionStore = store;
 }
 
-export type AdguardConnectionSource = "env" | "saved";
-
-export async function resolveAdguardConnection(): Promise<
-  (AdguardConnection & { source: AdguardConnectionSource }) | null
-> {
-  const envUrl = process.env.ADGUARD_BASE_URL?.replace(/\/+$/, "");
-  if (envUrl) {
-    return {
-      source: "env",
-      baseUrl: envUrl,
-      user: process.env.ADGUARD_USER ?? "",
-      password: process.env.ADGUARD_PASSWORD ?? "",
-    };
-  }
-  const saved = await connectionStore?.loadAdguard();
-  return saved ? { ...saved, source: "saved" } : null;
+/** The connection saved from the card's settings UI, if any. */
+export async function resolveAdguardConnection(): Promise<AdguardConnection | null> {
+  return (await connectionStore?.loadAdguard()) ?? null;
 }
 
 export function adguardAuthHeaders(connection: {

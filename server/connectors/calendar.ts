@@ -4,8 +4,7 @@ import type { ConnectionStore } from "../connection-store.ts";
 /**
  * iCalendar (ICS) subscription connector. The feed URL is configured from the
  * calendar card's settings and stored server-side (connections.json) — private
- * ICS URLs are capability tokens and must never enter board.json. CALENDAR_ICS_URL
- * overrides for deployment-managed setups, mirroring the calibre connector.
+ * ICS URLs are capability tokens and must never enter board.json.
  */
 
 export interface CalendarEvent {
@@ -31,16 +30,10 @@ export function initCalendar(store: ConnectionStore): void {
   connectionStore = store;
 }
 
-export type CalendarConnectionSource = "env" | "saved";
-
-export async function resolveCalendarUrl(): Promise<{
-  url: string;
-  source: CalendarConnectionSource;
-} | null> {
-  const envUrl = process.env.CALENDAR_ICS_URL;
-  if (envUrl) return { url: envUrl, source: "env" };
+/** The feed subscribed from the card's settings UI, if any. */
+export async function resolveCalendarUrl(): Promise<{ url: string } | null> {
   const saved = await connectionStore?.loadCalendar();
-  return saved ? { url: saved.url, source: "saved" } : null;
+  return saved ? { url: saved.url } : null;
 }
 
 /** webcal:// is the subscription scheme apps register — it's https underneath. */

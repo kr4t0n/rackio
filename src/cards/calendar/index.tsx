@@ -543,15 +543,6 @@ function CalendarSettings(props: CardSettingsProps<CalendarConfig>) {
 
   const status = connection.data;
 
-  if (status?.source === "env") {
-    return (
-      <div className="rounded-xl border border-border bg-bg px-3.5 py-3 text-xs leading-[1.5] text-muted">
-        Subscribed to <span className="text-fg">{status.host}</span> — managed
-        by the server environment (CALENDAR_ICS_URL).
-      </div>
-    );
-  }
-
   if (status?.configured) {
     return (
       <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-bg px-3.5 py-3">
