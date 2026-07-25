@@ -66,6 +66,8 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   Postgres** (only for multi-replica or true multi-user, neither planned).
   New cards keep live data in memory caches or `data/` files (see covers);
   anything row-shaped means the SQLite rung, not an ad-hoc store.
+- **Integration credentials are UI-only (decided 2026-07-25).** No
+  environment variables, no chart values — see the gotcha below.
 - **Deployment target** is a k8s cluster via Helm; Docker is packaging.
   Release pipeline mirrors the argus project: `docker-publish.yml`
   (multi-arch, native runners, push-by-digest then merge manifest) and
@@ -166,15 +168,16 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
 - **Calibre-Web has no reading-progress API** (progress is Kobo-sync-only),
   so the reference design's progress bar was deliberately dropped — the card
   ships shelves ("new"/"hot" OPDS feeds) + deep links. Don't fake a % bar.
-- **Calibre connection is configured from the card's settings UI**, but the
-  credentials are stored server-side in `DATA_DIR/connections.json` (0600) —
-  never in board.json, which syncs to every client. `PUT
-  /api/calibre/connection` validates against the live library and only
-  persists working credentials; `GET` returns a sanitized status (no
-  password). `CALIBRE_*` env vars override the UI (deployment-managed mode —
-  the form shows "managed by the server environment"). Covers are proxied
-  through `/api/calibre/cover/:id` so the browser never sees the basic-auth
-  header. Kyle's instance: https://book.kubitnodes.com.
+- **Integration credentials are UI-only, by explicit decision (2026-07-25).**
+  Every connector is configured from its card's settings, validated against
+  the live service, and stored server-side in `DATA_DIR/connections.json`
+  (0600) — never in board.json, which syncs to every client. There is NO
+  environment-variable path: don't add `CALIBRE_*` / `ADGUARD_*` /
+  `CALENDAR_ICS_URL` style overrides back, and don't add chart values for
+  them. `GET /…/connection` returns a sanitized status (no password; the
+  calendar exposes only the feed's host). Calibre covers are proxied through
+  `/api/calibre/cover/:id` so the browser never sees the basic-auth header.
+  Kyle's instance: https://book.kubitnodes.com.
   `scripts/verify-connect.mjs` drives the whole flow headlessly against the
   authed mock (`MOCK_USER=… MOCK_PASSWORD=… node scripts/mock-calibre.mjs`).
 - **The link to Kyle's Calibre-Web is very slow** (a 150KB cover was observed
@@ -200,8 +203,8 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   ages alongside for the chart's "30s ago" labels; the ring resets on
   restart by design (no DB — see the storage decision).
 - **AdGuard = third connector on the same shape** (settings-UI connection →
-  connections.json, `ADGUARD_*` env override, validate-before-save with URL
-  candidates so a pasted `#/dashboard` URL works). Stats come from
+  connections.json, validate-before-save with URL candidates so a pasted
+  `#/dashboard` URL works). Stats come from
   `/control/stats` + `/control/status`; `avg_processing_time` is *seconds* in
   current builds (values < 1 are converted to ms), and top-lists arrive as
   either `{domain: count}` or `{name, count}` depending on version — both are
@@ -212,8 +215,7 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   gate optional chrome (axis labels, mini-stat rows) behind container queries.
 - **Calendar = iCal subscription, same secrecy rules as calibre**: private
   ICS URLs are capability tokens, stored in connections.json via the card's
-  settings (env override `CALENDAR_ICS_URL`); the status endpoint returns the
-  HOST only, never the full URL. Recurrence expansion happens server-side
+  settings; the status endpoint returns the HOST only, never the full URL. Recurrence expansion happens server-side
   (node-ical), windowed to −1/+60 days, capped at 100 events.
   `scripts/mock-ical.mjs` serves a fixture feed on :8094 for development.
 - **The Time card keeps type key `clock`** so existing board instances
@@ -233,8 +235,8 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   future connector validation should assert on parsed content, not status
   codes.
 - **`scripts/mock-calibre.mjs`** fakes the OPDS catalog (books + SVG covers,
-  optional basic auth) — use it with `CALIBRE_BASE_URL=http://localhost:8093`
-  to develop the card without touching the real library.
+  optional basic auth) — point the card's settings at http://localhost:8093
+  to develop against it without touching the real library.
 - **`pkill -f 'server/index.ts'` kills your own compound command** if the
   pattern appears anywhere in it (bash -c argv matches). Use
   `pkill -f 'server/index[.]ts'` in a Bash call that doesn't also spawn the

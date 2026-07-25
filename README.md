@@ -80,13 +80,14 @@ Chromium build.
 | `HOST` | `0.0.0.0` | Bind address (all interfaces — rackio is a LAN app) |
 | `DATA_DIR` | `data` | Where `board.json` lives; mount a volume here in Docker/k8s |
 | `NODE_ENV` | — | `production` makes the server serve `dist/` |
-| `CALIBRE_BASE_URL` | — | Optional override: locks the calibre connection to the environment |
-| `CALIBRE_USER` / `CALIBRE_PASSWORD` | — | Used with the override above (Docker/k8s deployments) |
 
 The server loads `.env` automatically at startup (`process.loadEnvFile`).
-Normally the calibre connection is set up from the card's settings UI and
-stored in `DATA_DIR/connections.json` (0600) — the env vars exist for
-deployments where secrets come from the platform.
+
+**Integrations are not configured through the environment.** Calibre,
+the calendar feed, AdGuard, and torrent clients are each connected from
+their card's settings panel; the server validates the credentials against
+the live service and stores them in `DATA_DIR/connections.json` (mode
+0600), never in the board file.
 
 ### API
 
@@ -102,11 +103,11 @@ deployments where secrets come from the platform.
   UI-driven setup; PUT validates credentials against the library before saving
 - `GET /api/calendar/events` — iCal feed events, recurrences expanded, cached 10 min
 - `GET/PUT/DELETE /api/calendar/connection` — feed subscription (status exposes
-  the host only; `CALENDAR_ICS_URL` env overrides)
+  the host only, never the full URL)
 - `GET /api/adguard/stats` — AdGuard Home totals, hourly series, and top lists,
   cached 1 min
 - `GET/PUT/DELETE /api/adguard/connection` — instance setup, validated against
-  the live API before saving (`ADGUARD_BASE_URL`/`_USER`/`_PASSWORD` override)
+  the live API before saving
 - `GET /api/downloader/:cardId/stats` — torrent client queue + throughput
   samples for one card
 - `GET/PUT/DELETE /api/downloader/:cardId/connection` — per-card client setup;
@@ -119,23 +120,19 @@ calendar card; `node scripts/mock-adguard.mjs` fakes the AdGuard Home API on
 :8095; `node scripts/mock-downloader.mjs` fakes qBittorrent on :8097 (or
 `KIND=transmission PORT=8098 …` for Transmission).
 
-Service integration secrets (Calibre-Web credentials, etc.) arrive with their
-milestones and will be documented in `.env.example` as they land. Secrets live
-in `.env` (gitignored) — never in source.
-
 ## Project structure
 
 ```
 src/            React SPA
   app/          shell: topbar, theme, icons, announcer, shared controls
   board/        grid engine, card frame, settings overlay, catalog, board state
-  cards/        card registry + one folder per card type (clock, utility)
+  cards/        card registry + one folder per card type
   styles/       design tokens (oklch, dark/light) + Tailwind setup
 server/         Hono API server; serves dist/ in production
-  connectors/   one file per integration (ping; weather and calibre to come)
+  connectors/   one file per integration (ping, weather, calibre, calendar, adguard, downloader)
 shared/         types + zod schemas shared by SPA and server
 scripts/        dev utilities (screenshots, board smoke test)
-data/           runtime state (gitignored; board.json)
+data/           runtime state (gitignored): board.json, connections.json, covers/
 ```
 
 ## Deployment
@@ -167,7 +164,6 @@ Key values (full list in [helm/rackio/values.yaml](helm/rackio/values.yaml)):
 | `image.tag` | `.Chart.AppVersion` | Pin a specific image |
 | `persistence.enabled` / `size` | `true` / `1Gi` | PVC is kept on uninstall |
 | `ingress.enabled` / `className` / `host` | `false` | One host → one Ingress |
-| `integrations.*` | empty | Optional: pin Calibre/Calendar/AdGuard credentials to the deployment instead of configuring them per card |
 
 Rackio reaches your services **from the pod**, so configured addresses
 must be routable from inside the cluster. It runs as a non-root user
@@ -191,5 +187,5 @@ Node process.
   `main`; `helm-publish` packages it to the `gh-pages` branch. `helm
   package` refuses to overwrite an existing version, so the bump *is* the
   release.
-* Both workflows need the `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` repo
-  secrets.
+* Only `docker-publish` needs repo secrets: `DOCKERHUB_USERNAME` /
+  `DOCKERHUB_TOKEN`.
