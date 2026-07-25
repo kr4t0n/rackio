@@ -17,7 +17,9 @@ an "Add card" catalog, per-card settings in a flip-to-center panel. The
 layout persists **server-side** (`data/board.json`) with newer-wins conflict
 resolution against the localStorage cache. Card types: **weather** (live
 Open-Meteo conditions rendered as an animated WebGL sky, with a location
-picker in settings), **calendar** (month view, 12-day strip, and upcoming
+picker in settings), **adguard** (DNS blocking stats with an interactive
+hourly sparkline, top blocked domains, and per-client breakdown from AdGuard
+Home's API), **calendar** (month view, 12-day strip, and upcoming
 agenda from an iCal subscription configured in settings — recurrences
 expanded server-side), **calibre library** (fresh reads from Calibre-Web's
 OPDS catalog with proxied covers and deep links; connect from the card's
@@ -99,11 +101,16 @@ deployments where secrets come from the platform.
 - `GET /api/calendar/events` — iCal feed events, recurrences expanded, cached 10 min
 - `GET/PUT/DELETE /api/calendar/connection` — feed subscription (status exposes
   the host only; `CALENDAR_ICS_URL` env overrides)
+- `GET /api/adguard/stats` — AdGuard Home totals, hourly series, and top lists,
+  cached 1 min
+- `GET/PUT/DELETE /api/adguard/connection` — instance setup, validated against
+  the live API before saving (`ADGUARD_BASE_URL`/`_USER`/`_PASSWORD` override)
 
 `node scripts/mock-calibre.mjs` runs a fake Calibre-Web OPDS server on :8093
 for developing the calibre card without a real library;
 `node scripts/mock-ical.mjs` serves a fixture ICS feed on :8094 for the
-calendar card.
+calendar card; `node scripts/mock-adguard.mjs` fakes the AdGuard Home API on
+:8095.
 
 Service integration secrets (Calibre-Web credentials, etc.) arrive with their
 milestones and will be documented in `.env.example` as they land. Secrets live

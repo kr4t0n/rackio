@@ -25,9 +25,9 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   - `src/cards/` — card registry + one folder per card type. Cards implement
     the `CardDefinition` contract in `registry.tsx` (Component + Settings +
     zod config schema + supported footprints + optional `maxInstances`); the
-    board never knows card internals. Current types: `weather`, `calendar`,
-    `calibre`, `service-tile`, `clock` (the Time card — type key kept for
-    board compatibility), `utility`.
+    board never knows card internals. Current types: `weather`, `adguard`,
+    `calendar`, `calibre`, `service-tile`, `clock` (the Time card — type key
+    kept for board compatibility), `utility`.
   - `src/cards/weather/scene/` — the three.js sky: `shaders.ts` (GLSL ported
     from the reference design), `engine.ts` (plain TS class: renderer, cloud
     planes, rain/snow particles), `WeatherScene.tsx` (React lifecycle +
@@ -164,6 +164,17 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   disk (`DATA_DIR/covers/`) so each book's cover is fetched once ever.
   Resized-thumbnail web routes (`/cover/:id/sm`) 302 to login under basic
   auth, so full covers are the only option.
+- **AdGuard = third connector on the same shape** (settings-UI connection →
+  connections.json, `ADGUARD_*` env override, validate-before-save with URL
+  candidates so a pasted `#/dashboard` URL works). Stats come from
+  `/control/stats` + `/control/status`; `avg_processing_time` is *seconds* in
+  current builds (values < 1 are converted to ms), and top-lists arrive as
+  either `{domain: count}` or `{name, count}` depending on version — both are
+  parsed. `scripts/mock-adguard.mjs` serves a fixture API on :8095.
+- **Charts must not set a tall `min-height`** — the AdGuard sparkline
+  overflowed its panel and painted over the stats row/axis on a narrow board.
+  Keep the floor tiny (24px), put `min-h-0` on the grid item wrapping it, and
+  gate optional chrome (axis labels, mini-stat rows) behind container queries.
 - **Calendar = iCal subscription, same secrecy rules as calibre**: private
   ICS URLs are capability tokens, stored in connections.json via the card's
   settings (env override `CALENDAR_ICS_URL`); the status endpoint returns the
