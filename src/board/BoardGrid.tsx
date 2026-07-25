@@ -42,7 +42,7 @@ export function BoardGrid({
   );
 
   return (
-    <div ref={containerRef} className="mx-auto min-h-[620px] max-w-360">
+    <div ref={containerRef} className="mx-auto min-h-[620px] max-w-[var(--board-max-width)]">
       {mounted && width > 0 && (
         <GridLayout
           width={width}

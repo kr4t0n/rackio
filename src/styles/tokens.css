@@ -15,6 +15,15 @@
   --border: oklch(100% 0 0 / 0.09);
   --accent: oklch(78% 0.12 218);
   --grid-size: 32px;
+
+  /* How wide the 12-column board may grow. The grid keeps a fixed 12
+     columns (so a layout means the same thing on every screen), which
+     means extra width makes CARDS bigger rather than adding slots — at
+     full ultrawide width a "small" 2×2 tile balloons past 540px and its
+     content floats in space. 2200px keeps cells ~168px (small ≈ 354px,
+     close to the reference design's 224px at 1440) while still using far
+     more of a wide display. Raise it for bigger cards, not more of them. */
+  --board-max-width: 2200px;
 }
 
 html[data-theme="light"] {
