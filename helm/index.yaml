@@ -3,13 +3,13 @@ entries:
   rackio:
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-07-25T09:50:41.302848033Z"
+    created: "2026-07-25T10:07:11.650940102Z"
     description: 'Rackio — a grid-based dashboard for the services on your rack. This
       chart deploys the single rackio container (React SPA + Hono API in one process)
       with a PersistentVolumeClaim for its board layout, integration credentials,
       and cover cache. No database is required — rackio stores state as JSON files
       on that volume. '
-    digest: 81a2f9fbacf4f2d075d96de35a9bc4836352c974cc5b4decfca772f3e9b52a6b
+    digest: fdd1f48a080804294bafcbb3bc39c3886b345355df4f83473cccac61f16b6de8
     home: https://github.com/kr4t0n/rackio
     keywords:
     - rackio
@@ -26,4 +26,4 @@ entries:
     urls:
     - https://kr4t0n.github.io/rackio/helm/rackio-0.1.0.tgz
     version: 0.1.0
-generated: "2026-07-25T09:50:41.302142979Z"
+generated: "2026-07-25T10:07:11.650421729Z"
