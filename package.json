@@ -21,6 +21,7 @@
     "fast-xml-parser": "^5.10.1",
     "hono": "^4.12.31",
     "motion": "^12.42.2",
+    "node-ical": "^0.27.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-grid-layout": "^2.2.3",

@@ -6,6 +6,14 @@ import { z } from "zod";
 import { validateBoardState } from "../shared/board-schema.ts";
 import { createConnectionStore } from "./connection-store.ts";
 import {
+  clearCalendarCache,
+  fetchFeed,
+  getFeed,
+  initCalendar,
+  normalizeIcsUrl,
+  resolveCalendarUrl,
+} from "./connectors/calendar.ts";
+import {
   baseUrlCandidates,
   clearCalibreCache,
   fetchCover,
@@ -34,6 +42,7 @@ const dataDir = process.env.DATA_DIR ?? "data";
 const store = createBoardStore(dataDir);
 const connections = createConnectionStore(dataDir);
 initCalibre(connections, dataDir);
+initCalendar(connections);
 
 const api = new Hono();
 
@@ -179,6 +188,53 @@ api.get("/calibre/cover/:id", async (c) => {
     "Content-Type": cover.contentType,
     "Cache-Control": "public, max-age=3600",
   });
+});
+
+api.get("/calendar/events", async (c) => c.json(await getFeed()));
+
+// Sanitized status: private ICS URLs are capability tokens — expose the host
+// only, never the full URL.
+api.get("/calendar/connection", async (c) => {
+  const connection = await resolveCalendarUrl();
+  if (!connection) return c.json({ configured: false });
+  let host = "calendar feed";
+  try {
+    host = new URL(connection.url).host;
+  } catch {
+    // keep the generic label
+  }
+  return c.json({ configured: true, source: connection.source, host });
+});
+
+api.put("/calendar/connection", async (c) => {
+  const current = await resolveCalendarUrl();
+  if (current?.source === "env") {
+    return c.json({ error: "connection is managed by the server environment" }, 409);
+  }
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "invalid JSON" }, 400);
+  }
+  const raw = (body as { url?: unknown })?.url;
+  const url = typeof raw === "string" && raw.length <= 500 ? normalizeIcsUrl(raw) : null;
+  if (!url) return c.json({ error: "invalid calendar URL" }, 400);
+  const feed = await fetchFeed(url);
+  if (feed.error) return c.json({ ok: false, error: feed.error });
+  await connections.saveCalendar({ url });
+  clearCalendarCache();
+  return c.json({ ok: true, events: feed.events?.length ?? 0 });
+});
+
+api.delete("/calendar/connection", async (c) => {
+  const current = await resolveCalendarUrl();
+  if (current?.source === "env") {
+    return c.json({ error: "connection is managed by the server environment" }, 409);
+  }
+  await connections.clearCalendar();
+  clearCalendarCache();
+  return c.json({ ok: true });
 });
 
 api.get("/ping", async (c) => {

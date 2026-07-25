@@ -13,14 +13,23 @@ export interface CalibreConnection {
   password: string;
 }
 
+/** Private ICS URLs are capability tokens — secret like a password. */
+export interface CalendarConnection {
+  url: string;
+}
+
 interface ConnectionsFile {
   calibre?: CalibreConnection;
+  calendar?: CalendarConnection;
 }
 
 export interface ConnectionStore {
   loadCalibre(): Promise<CalibreConnection | null>;
   saveCalibre(connection: CalibreConnection): Promise<void>;
   clearCalibre(): Promise<void>;
+  loadCalendar(): Promise<CalendarConnection | null>;
+  saveCalendar(connection: CalendarConnection): Promise<void>;
+  clearCalendar(): Promise<void>;
 }
 
 export function createConnectionStore(dataDir: string): ConnectionStore {
@@ -70,6 +79,20 @@ export function createConnectionStore(dataDir: string): ConnectionStore {
     clearCalibre() {
       return write((file) => {
         delete file.calibre;
+      });
+    },
+    async loadCalendar() {
+      const { calendar } = await read();
+      return calendar && typeof calendar.url === "string" ? calendar : null;
+    },
+    saveCalendar(connection: CalendarConnection) {
+      return write((file) => {
+        file.calendar = connection;
+      });
+    },
+    clearCalendar() {
+      return write((file) => {
+        delete file.calendar;
       });
     },
   };
