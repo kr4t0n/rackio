@@ -16,13 +16,15 @@ final class WallpaperWindow: NSWindow {
 
     init(screen: NSScreen) {
         // visibleFrame, not frame — keeps the board clear of the menu bar and
-        // the Dock, both of which draw above the desktop layer anyway.
+        // the Dock, both of which draw above the desktop layer anyway. It is
+        // already in global screen coordinates, so it lands on the right
+        // display without the `screen:` argument — which is a convenience
+        // initializer a subclass isn't allowed to call anyway.
         super.init(
             contentRect: screen.visibleFrame,
             styleMask: [.borderless],
             backing: .buffered,
-            defer: false,
-            screen: screen
+            defer: false
         )
 
         isOpaque = false
