@@ -14,6 +14,14 @@ import {
   resolveAdguardConnection,
 } from "./connectors/adguard.ts";
 import {
+  clearDownloaderState,
+  fetchDownloader,
+  getDownloaderStats,
+  initDownloader,
+  normalizeBaseUrl,
+  resolveDownloader,
+} from "./connectors/downloader.ts";
+import {
   clearCalendarCache,
   fetchFeed,
   getFeed,
@@ -52,6 +60,7 @@ const connections = createConnectionStore(dataDir);
 initCalibre(connections, dataDir);
 initCalendar(connections);
 initAdguard(connections);
+initDownloader(connections);
 
 const api = new Hono();
 
@@ -77,6 +86,12 @@ api.put("/board", async (c) => {
     return c.json({ error: "too many cards" }, 400);
   }
   await store.save(board);
+  // Card secrets outlive their card otherwise — drop connections for cards
+  // that are no longer on the board.
+  const stale = await connections.pruneDownloaders(
+    board.cards.map((card) => card.id),
+  );
+  for (const id of stale) clearDownloaderState(id);
   return c.json({ board });
 });
 
@@ -307,6 +322,68 @@ api.delete("/adguard/connection", async (c) => {
   }
   await connections.clearAdguard();
   clearAdguardCache();
+  return c.json({ ok: true });
+});
+
+/* --- downloader: one connection per card instance --- */
+
+const instanceIdPattern = /^[A-Za-z0-9_-]{1,64}$/;
+
+api.get("/downloader/:id/stats", async (c) => {
+  const id = c.req.param("id");
+  if (!instanceIdPattern.test(id)) return c.json({ error: "invalid card id" }, 400);
+  return c.json(await getDownloaderStats(id));
+});
+
+api.get("/downloader/:id/connection", async (c) => {
+  const id = c.req.param("id");
+  if (!instanceIdPattern.test(id)) return c.json({ error: "invalid card id" }, 400);
+  const connection = await resolveDownloader(id);
+  if (!connection) return c.json({ configured: false });
+  return c.json({
+    configured: true,
+    kind: connection.kind,
+    baseUrl: connection.baseUrl,
+    user: connection.user,
+    label: connection.label,
+  });
+});
+
+const downloaderConnectionSchema = z.object({
+  kind: z.enum(["qbittorrent", "transmission"]),
+  baseUrl: z.string().min(1).max(200),
+  user: z.string().max(100),
+  password: z.string().max(200),
+  label: z.string().max(40).optional(),
+});
+
+api.put("/downloader/:id/connection", async (c) => {
+  const id = c.req.param("id");
+  if (!instanceIdPattern.test(id)) return c.json({ error: "invalid card id" }, 400);
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "invalid JSON" }, 400);
+  }
+  const parsed = downloaderConnectionSchema.safeParse(body);
+  if (!parsed.success) return c.json({ error: "invalid connection details" }, 400);
+  const baseUrl = normalizeBaseUrl(parsed.data.baseUrl);
+  if (!baseUrl) return c.json({ error: "invalid client URL" }, 400);
+
+  const candidate = { ...parsed.data, baseUrl };
+  const stats = await fetchDownloader(candidate);
+  if (stats.error) return c.json({ ok: false, error: stats.error });
+  await connections.saveDownloader(id, candidate);
+  clearDownloaderState(id);
+  return c.json({ ok: true, transfers: stats.totalCount ?? 0 });
+});
+
+api.delete("/downloader/:id/connection", async (c) => {
+  const id = c.req.param("id");
+  if (!instanceIdPattern.test(id)) return c.json({ error: "invalid card id" }, 400);
+  await connections.clearDownloader(id);
+  clearDownloaderState(id);
   return c.json({ ok: true });
 });
 

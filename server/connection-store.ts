@@ -24,10 +24,22 @@ export interface AdguardConnection {
   password: string;
 }
 
+/** Per-card: each downloader card points at its own torrent client. */
+export interface DownloaderConnection {
+  kind: "qbittorrent" | "transmission";
+  baseUrl: string;
+  user: string;
+  password: string;
+  /** Optional display name overriding the client's own. */
+  label?: string;
+}
+
 interface ConnectionsFile {
   calibre?: CalibreConnection;
   calendar?: CalendarConnection;
   adguard?: AdguardConnection;
+  /** Keyed by card instance id. */
+  downloaders?: Record<string, DownloaderConnection>;
 }
 
 export interface ConnectionStore {
@@ -40,6 +52,14 @@ export interface ConnectionStore {
   loadAdguard(): Promise<AdguardConnection | null>;
   saveAdguard(connection: AdguardConnection): Promise<void>;
   clearAdguard(): Promise<void>;
+  loadDownloader(instanceId: string): Promise<DownloaderConnection | null>;
+  saveDownloader(
+    instanceId: string,
+    connection: DownloaderConnection,
+  ): Promise<void>;
+  clearDownloader(instanceId: string): Promise<void>;
+  /** Drop connections whose card is no longer on the board. */
+  pruneDownloaders(keepIds: string[]): Promise<string[]>;
 }
 
 export function createConnectionStore(dataDir: string): ConnectionStore {
@@ -123,6 +143,34 @@ export function createConnectionStore(dataDir: string): ConnectionStore {
       return write((file) => {
         delete file.adguard;
       });
+    },
+    async loadDownloader(instanceId: string) {
+      const connection = (await read()).downloaders?.[instanceId];
+      return connection &&
+        typeof connection.baseUrl === "string" &&
+        (connection.kind === "qbittorrent" || connection.kind === "transmission")
+        ? connection
+        : null;
+    },
+    saveDownloader(instanceId: string, connection: DownloaderConnection) {
+      return write((file) => {
+        file.downloaders = { ...file.downloaders, [instanceId]: connection };
+      });
+    },
+    clearDownloader(instanceId: string) {
+      return write((file) => {
+        if (file.downloaders) delete file.downloaders[instanceId];
+      });
+    },
+    async pruneDownloaders(keepIds: string[]) {
+      const file = await read();
+      const existing = Object.keys(file.downloaders ?? {});
+      const stale = existing.filter((id) => !keepIds.includes(id));
+      if (stale.length === 0) return [];
+      await write((draft) => {
+        for (const id of stale) delete draft.downloaders?.[id];
+      });
+      return stale;
     },
   };
 }
