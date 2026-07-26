@@ -32,6 +32,18 @@ export interface PlexConnection {
   label?: string;
 }
 
+/**
+ * Docker Hub is the one integration whose credentials are optional: a
+ * namespace alone reads public repositories anonymously.
+ */
+export interface DockerHubConnection {
+  namespace: string;
+  username?: string;
+  /** Personal access token — never a password if it can be helped. */
+  token?: string;
+  label?: string;
+}
+
 /** Per-card: each downloader card points at its own torrent client. */
 export interface DownloaderConnection {
   kind: "qbittorrent" | "transmission";
@@ -47,6 +59,7 @@ interface ConnectionsFile {
   calendar?: CalendarConnection;
   adguard?: AdguardConnection;
   plex?: PlexConnection;
+  dockerhub?: DockerHubConnection;
   /** Keyed by card instance id. */
   downloaders?: Record<string, DownloaderConnection>;
 }
@@ -64,6 +77,9 @@ export interface ConnectionStore {
   loadPlex(): Promise<PlexConnection | null>;
   savePlex(connection: PlexConnection): Promise<void>;
   clearPlex(): Promise<void>;
+  loadDockerHub(): Promise<DockerHubConnection | null>;
+  saveDockerHub(connection: DockerHubConnection): Promise<void>;
+  clearDockerHub(): Promise<void>;
   loadDownloader(instanceId: string): Promise<DownloaderConnection | null>;
   saveDownloader(
     instanceId: string,
@@ -172,6 +188,22 @@ export function createConnectionStore(dataDir: string): ConnectionStore {
     clearPlex() {
       return write((file) => {
         delete file.plex;
+      });
+    },
+    async loadDockerHub() {
+      const { dockerhub } = await read();
+      return dockerhub && typeof dockerhub.namespace === "string"
+        ? dockerhub
+        : null;
+    },
+    saveDockerHub(connection: DockerHubConnection) {
+      return write((file) => {
+        file.dockerhub = connection;
+      });
+    },
+    clearDockerHub() {
+      return write((file) => {
+        delete file.dockerhub;
       });
     },
     async loadDownloader(instanceId: string) {

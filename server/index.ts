@@ -14,6 +14,15 @@ import {
   resolveAdguardConnection,
 } from "./connectors/adguard.ts";
 import {
+  clearDockerHubCache,
+  clearDockerHubToken,
+  fetchDockerHub,
+  getDockerHubState,
+  initDockerHub,
+  normalizeNamespace,
+  resolveDockerHubConnection,
+} from "./connectors/dockerhub.ts";
+import {
   clearDownloaderState,
   fetchDownloader,
   getDownloaderStats,
@@ -75,6 +84,7 @@ initCalendar(connections);
 initAdguard(connections);
 initDownloader(connections);
 initPlex(connections);
+initDockerHub(connections);
 
 const api = new Hono();
 
@@ -372,6 +382,70 @@ api.delete("/plex/connection", async (c) => {
   await connections.clearPlex();
   clearPlexCache();
   clearPlexArtCache();
+  return c.json({ ok: true });
+});
+
+/* --- docker hub: namespace required, credentials optional --- */
+
+api.get("/dockerhub/state", async (c) => c.json(await getDockerHubState()));
+
+api.get("/dockerhub/connection", async (c) => {
+  const connection = await resolveDockerHubConnection();
+  if (!connection) return c.json({ configured: false });
+  // The access token is a credential — report only that one is set.
+  return c.json({
+    configured: true,
+    namespace: connection.namespace,
+    username: connection.username,
+    authenticated: Boolean(connection.username && connection.token),
+    label: connection.label,
+  });
+});
+
+const dockerHubConnectionSchema = z.object({
+  namespace: z.string().min(1).max(255),
+  username: z.string().max(255).optional(),
+  token: z.string().max(500).optional(),
+  label: z.string().max(40).optional(),
+});
+
+api.put("/dockerhub/connection", async (c) => {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "invalid JSON" }, 400);
+  }
+  const parsed = dockerHubConnectionSchema.safeParse(body);
+  if (!parsed.success) return c.json({ error: "invalid connection details" }, 400);
+  const namespace = normalizeNamespace(parsed.data.namespace);
+  if (!namespace) return c.json({ error: "invalid namespace" }, 400);
+
+  // Credentials are all-or-nothing: half a pair reads as anonymous, which
+  // would silently hide the private repositories the user came for.
+  const username = parsed.data.username?.trim();
+  const token = parsed.data.token?.trim();
+  if (Boolean(username) !== Boolean(token)) {
+    return c.json({ ok: false, error: "incomplete-credentials" });
+  }
+
+  const candidate = {
+    namespace,
+    ...(username && token ? { username, token } : {}),
+    ...(parsed.data.label ? { label: parsed.data.label } : {}),
+  };
+  clearDockerHubToken();
+  const state = await fetchDockerHub(candidate);
+  if (state.error) return c.json({ ok: false, error: state.error });
+  await connections.saveDockerHub(candidate);
+  clearDockerHubCache();
+  return c.json({ ok: true, images: state.images?.length ?? 0 });
+});
+
+api.delete("/dockerhub/connection", async (c) => {
+  await connections.clearDockerHub();
+  clearDockerHubCache();
+  clearDockerHubToken();
   return c.json({ ok: true });
 });
 

@@ -24,7 +24,9 @@ qBittorrent or Transmission — one card per client, so several can sit on the
 board at once), **plex** (continue-watching hero plus queue from a Plex
 server — the queue backfills from recently added, since most servers only
 have one thing in progress — with proxied artwork and deep links into the
-Plex web app),
+Plex web app), **docker hub** (images in a namespace with the tag worth
+pulling, and a detail sheet carrying digest, size, architectures and a
+copyable pull command — public namespaces need no credentials),
 **calendar** (month view, 12-day strip, and upcoming
 agenda from an iCal subscription configured in settings — recurrences
 expanded server-side), **calibre library** (fresh reads from Calibre-Web's
@@ -123,8 +125,8 @@ Chromium build.
 The server loads `.env` automatically at startup (`process.loadEnvFile`).
 
 **Integrations are not configured through the environment.** Calibre,
-the calendar feed, AdGuard, Plex, and torrent clients are each connected
-from their card's settings panel; the server validates the credentials against
+the calendar feed, AdGuard, Plex, Docker Hub, and torrent clients are each
+connected from their card's settings panel; the server validates the credentials against
 the live service and stores them in `DATA_DIR/connections.json` (mode
 0600), never in the board file.
 
@@ -151,6 +153,9 @@ the live service and stores them in `DATA_DIR/connections.json` (mode
 - `GET /api/plex/art?path=&w=&h=` — artwork proxy (token stays server-side)
 - `GET/PUT/DELETE /api/plex/connection` — server + token setup, validated
   against the live server before saving
+- `GET /api/dockerhub/state` — images in a namespace, cached 10 min
+- `GET/PUT/DELETE /api/dockerhub/connection` — namespace plus optional access
+  token, validated against Docker Hub before saving
 - `GET /api/downloader/:cardId/stats` — torrent client queue + throughput
   samples for one card
 - `GET/PUT/DELETE /api/downloader/:cardId/connection` — per-card client setup;
@@ -174,7 +179,7 @@ src/            React SPA
   cards/        card registry + one folder per card type
   styles/       design tokens (oklch, dark/light) + Tailwind setup
 server/         Hono API server; serves dist/ in production
-  connectors/   one file per integration (ping, weather, calibre, calendar, adguard, downloader, plex)
+  connectors/   one file per integration (ping, weather, calibre, calendar, adguard, downloader, plex, dockerhub)
 shared/         types + zod schemas shared by SPA and server
 scripts/        dev utilities (screenshots, board smoke test)
 data/           runtime state (gitignored): board.json, connections.json, covers/

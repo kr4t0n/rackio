@@ -375,3 +375,65 @@ export function savePlexConnection(connection: {
 export function clearPlexConnection(): Promise<void> {
   return request("/api/plex/connection", { method: "DELETE" });
 }
+
+export interface DockerImage {
+  name: string;
+  repo: string;
+  tag: string;
+  isPrivate: boolean;
+  digest?: string;
+  sizeBytes?: number;
+  architectures: string[];
+  updatedAt?: string;
+  description?: string;
+  pullCommand: string;
+  webUrl: string;
+}
+
+export interface DockerHubState {
+  configured: boolean;
+  namespace?: string;
+  label?: string;
+  authenticated?: boolean;
+  images?: DockerImage[];
+  error?: "unauthorized" | "unreachable" | "not-found";
+}
+
+export function fetchDockerHubState(): Promise<DockerHubState> {
+  return request<DockerHubState>("/api/dockerhub/state");
+}
+
+export interface DockerHubConnectionStatus {
+  configured: boolean;
+  namespace?: string;
+  username?: string;
+  authenticated?: boolean;
+  label?: string;
+}
+
+export function fetchDockerHubConnection(): Promise<DockerHubConnectionStatus> {
+  return request<DockerHubConnectionStatus>("/api/dockerhub/connection");
+}
+
+export interface DockerHubConnectResult {
+  ok: boolean;
+  images?: number;
+  error?: "unauthorized" | "unreachable" | "not-found" | "incomplete-credentials";
+}
+
+export function saveDockerHubConnection(connection: {
+  namespace: string;
+  username?: string;
+  token?: string;
+  label?: string;
+}): Promise<DockerHubConnectResult> {
+  return request<DockerHubConnectResult>("/api/dockerhub/connection", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(connection),
+  });
+}
+
+export function clearDockerHubConnection(): Promise<void> {
+  return request("/api/dockerhub/connection", { method: "DELETE" });
+}

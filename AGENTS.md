@@ -26,7 +26,8 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
     the `CardDefinition` contract in `registry.tsx` (Component + Settings +
     zod config schema + supported footprints + optional `maxInstances`); the
     board never knows card internals. Current types: `weather`, `adguard`,
-    `downloader`, `plex`, `calendar`, `calibre`, `service-tile`, `clock` (the Time
+    `downloader`, `plex`, `dockerhub`, `calendar`, `calibre`, `service-tile`,
+    `clock` (the Time
     card — type key kept for board compatibility). The `utility` placeholder
     was removed once the real cards landed; boards that still reference it
     drop the card on load via `sanitizeBoardState`, which is the intended
@@ -175,6 +176,17 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   measuring real overflow, so it only appears when something is actually
   scrolled under it — a form that swaps size (connect → connected) is
   watched too.
+- **A `<dialog>`'s close event is asynchronous** (the Docker Hub image
+  sheet). `close()` queues the event rather than firing it inline, so under
+  StrictMode's mount/unmount/mount the teardown's `close()` lands *after* the
+  remount has re-opened the dialog — wiring `onClose` straight to "the user
+  dismissed it" made the sheet vanish the instant it opened. Check
+  `dialogRef.current?.open` instead: only a real dismissal leaves it closed.
+  A flag set during teardown does *not* work, because the remount resets it
+  before the queued event arrives.
+- **`navigator.clipboard` is secure-context only**, like `crypto.randomUUID`
+  above — over the tailnet it rejects. Anything offering "copy" needs the
+  select-the-text fallback the Docker Hub pull command uses.
 - **`set-positions` must be referentially stable when nothing moved**
   (`state.ts`): RGL fires `onLayoutChange` after every commit; returning a
   new state object each time would loop forever.
@@ -298,6 +310,17 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   `grandparentTitle`. Music albums are filtered out — the rail is video.
   The third request is best-effort: a failure degrades to on-deck only
   rather than erroring the card.
+- **Docker Hub is the one connector that faces the public internet**, and the
+  only one whose credentials are *optional* — Hub serves a namespace's public
+  repositories anonymously, so the settings form asks for a namespace and
+  treats username + token as an all-or-nothing pair (half a pair would
+  silently read as anonymous and hide the private repos the user came for).
+  Auth is `POST /v2/users/login/` with the access token as the password,
+  exchanged for a JWT sent as `Authorization: JWT <token>` and cached 20 min.
+  The displayed tag comes from `pickTag`: a real version first, then
+  `latest`, then the newest tag of any shape — rackio's own repo has no semver
+  tags, so a naive "newest tag" would show `sha-6bab111`. buildx attestation
+  manifests report `architecture: "unknown"` and are filtered out.
 - **AdGuard = third connector on the same shape** (settings-UI connection →
   connections.json, validate-before-save with URL candidates so a pasted
   `#/dashboard` URL works). Stats come from

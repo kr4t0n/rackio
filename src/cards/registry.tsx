@@ -40,6 +40,7 @@ import { adguardCard } from "./adguard";
 import { calendarCard } from "./calendar";
 import { calibreCard } from "./calibre";
 import { clockCard } from "./clock";
+import { dockerHubCard } from "./dockerhub";
 import { downloaderCard } from "./downloader";
 import { plexCard } from "./plex";
 import { serviceTileCard } from "./service-tile";
@@ -52,6 +53,7 @@ const definitions = [
   adguardCard,
   downloaderCard,
   plexCard,
+  dockerHubCard,
   calendarCard,
   calibreCard,
   serviceTileCard,
