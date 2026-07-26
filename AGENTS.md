@@ -166,6 +166,15 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   backface culling — the flip shows mirrored settings text instead of the
   card back. The fade lives on a wrapper shell (which also carries
   `perspective`); the flipping element keeps opacity 1 forever.
+- **The settings panel is header / scrolling body / pinned actions** — the
+  whole panel used to be one `overflow-y-auto` box, so on a tall form (the
+  downloader's, at ~740px against a 640px cap) Cancel and Save fell below
+  the fold and the panel had to be scrolled to reach its own primary
+  action. Keep new settings forms inside the scrolling body; don't add
+  actions outside it. The footer's divider is driven by a ResizeObserver
+  measuring real overflow, so it only appears when something is actually
+  scrolled under it — a form that swaps size (connect → connected) is
+  watched too.
 - **`set-positions` must be referentially stable when nothing moved**
   (`state.ts`): RGL fires `onLayoutChange` after every commit; returning a
   new state object each time would loop forever.

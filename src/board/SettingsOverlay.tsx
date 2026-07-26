@@ -45,6 +45,33 @@ export function SettingsOverlay({
   );
 }
 
+/**
+ * Tracks whether the settings body actually overflows, so the pinned action
+ * row only grows a divider when there's something scrolled under it. Watches
+ * the content too — connecting an integration swaps a tall form for a short one.
+ */
+function useOverflow() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [scrollable, setScrollable] = useState(false);
+
+  useEffect(() => {
+    const node = scrollRef.current;
+    const content = contentRef.current;
+    if (!node || !content) return;
+    const measure = () => setScrollable(node.scrollHeight > node.clientHeight + 1);
+    measure();
+    // Both ends move: the viewport resizes the scroller, and the form itself
+    // grows or shrinks as queries resolve.
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, []);
+
+  return { scrollRef, contentRef, scrollable };
+}
+
 function SettingsPanel({
   target,
   onSave,
@@ -61,6 +88,7 @@ function SettingsPanel({
     resolveConfig(definition, card.config),
   );
   const { Settings } = definition;
+  const { scrollRef, contentRef, scrollable } = useOverflow();
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
@@ -157,8 +185,11 @@ function SettingsPanel({
           </div>
         )}
 
-        <div className="max-h-[min(640px,calc(100dvh-48px))] overflow-y-auto rounded-[20px] border border-border bg-surface p-6 shadow-[0_28px_90px_color-mix(in_oklch,var(--bg)_78%,transparent)] backface-hidden">
-          <div className="flex items-start justify-between gap-3.5">
+        {/* Header and actions are pinned; only the settings body scrolls, so
+            Save stays reachable no matter how tall a card's form is. The panel
+            still sizes to its content — the cap only bites on long forms. */}
+        <div className="flex max-h-[min(760px,calc(100dvh-32px))] flex-col rounded-[20px] border border-border bg-surface shadow-[0_28px_90px_color-mix(in_oklch,var(--bg)_78%,transparent)] backface-hidden">
+          <div className="flex shrink-0 items-start justify-between gap-3.5 p-6 pb-5">
             <div>
               <p className="m-0 mb-[3px] font-mono text-[10px] font-[550] tracking-[0.08em] uppercase text-muted">
                 Card settings
@@ -177,15 +208,25 @@ function SettingsPanel({
             </button>
           </div>
 
-          <div className="mt-5">
-            <Settings
-              draft={draft}
-              onChange={setDraft}
-              instanceId={card.id}
-            />
+          <div
+            ref={scrollRef}
+            data-settings-scroll
+            className="min-h-0 flex-1 overflow-y-auto px-6"
+          >
+            <div ref={contentRef}>
+              <Settings
+                draft={draft}
+                onChange={setDraft}
+                instanceId={card.id}
+              />
+            </div>
           </div>
 
-          <div className="mt-6 flex justify-end gap-2">
+          <div
+            className={`flex shrink-0 justify-end gap-2 p-6 pt-5 ${
+              scrollable ? "border-t border-border" : ""
+            }`}
+          >
             <button
               type="button"
               onClick={onClose}
