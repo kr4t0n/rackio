@@ -120,8 +120,8 @@ Chromium build.
 The server loads `.env` automatically at startup (`process.loadEnvFile`).
 
 **Integrations are not configured through the environment.** Calibre,
-the calendar feed, AdGuard, and torrent clients are each connected from
-their card's settings panel; the server validates the credentials against
+the calendar feed, AdGuard, Plex, and torrent clients are each connected
+from their card's settings panel; the server validates the credentials against
 the live service and stores them in `DATA_DIR/connections.json` (mode
 0600), never in the board file.
 
@@ -170,7 +170,7 @@ src/            React SPA
   cards/        card registry + one folder per card type
   styles/       design tokens (oklch, dark/light) + Tailwind setup
 server/         Hono API server; serves dist/ in production
-  connectors/   one file per integration (ping, weather, calibre, calendar, adguard, downloader)
+  connectors/   one file per integration (ping, weather, calibre, calendar, adguard, downloader, plex)
 shared/         types + zod schemas shared by SPA and server
 scripts/        dev utilities (screenshots, board smoke test)
 data/           runtime state (gitignored): board.json, connections.json, covers/
