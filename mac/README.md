@@ -71,10 +71,10 @@ between Spaces and `.stationary` so Mission Control leaves it alone.
   unsandboxed app; it is also why this is not App Store material.
 - **One web view per screen.** Each is a full board — including a separate
   three.js context if a weather card is on it. Two displays means two.
-- **The weather scene renders continuously.** A desktop window is always
-  "visible", so there is no tab-hidden throttling to save you. On a laptop this
-  is the app's main battery cost; capping the frame rate in wallpaper mode is
-  the obvious follow-up (see AGENTS.md).
+- **The weather scene is capped at 30fps here** (it is uncapped in a browser).
+  A desktop window is always "visible", so no hidden-tab throttling applies and
+  it would otherwise pull the GPU for as long as the app runs. Drifting clouds
+  read the same at 30fps; this is still the app's main battery cost.
 - **Layout edits need the browser.** The wallpaper shell can't edit, and it
   polls `/api/board` once a minute, so a rearrangement shows up within ~60s or
   immediately via **Reload Board**.

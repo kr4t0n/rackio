@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import { isWallpaper } from "@/app/shell";
 import type { SceneMode } from "@/lib/api";
 import { WeatherSceneEngine } from "./engine";
+
+/** Frame cap for the wallpaper shell. The board runs on the desktop for days
+ *  at a time with no hidden-tab throttling to save the battery, and drifting
+ *  clouds read the same at 30fps as at 120. */
+const WALLPAPER_MAX_FPS = 30;
 
 /** Static gradients per mode — the base layer behind the canvas and the whole
  *  scene when WebGL is unavailable. Ported from the reference design. */
@@ -59,7 +65,11 @@ export function WeatherScene({
 
     let engine: WeatherSceneEngine;
     try {
-      engine = new WeatherSceneEngine(canvas, !reducedMotion);
+      engine = new WeatherSceneEngine(
+        canvas,
+        !reducedMotion,
+        isWallpaper ? WALLPAPER_MAX_FPS : 0,
+      );
     } catch (error) {
       // Empty canvas is transparent — the gradient behind it shows through.
       console.warn("rackio: WebGL weather unavailable, using gradient.", error);

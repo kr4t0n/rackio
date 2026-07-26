@@ -62,10 +62,24 @@ export class WeatherSceneEngine {
   private frameHandle = 0;
   private lastFrame = 0;
   private readonly animated: boolean;
+  /* Minimum gap between rendered frames, ms. 0 = every frame the display offers. */
+  private readonly minFrameMs: number;
+  /* Delta clamp, seconds — guards the physics against a long stall (a
+     backgrounded tab, a stutter). Derived from the cap so a capped frame
+     isn't mistaken for one. */
+  private readonly maxDelta: number;
   private disposed = false;
 
-  constructor(canvas: HTMLCanvasElement, animated: boolean) {
+  /**
+   * @param maxFps Cap the render rate; 0 (default) renders as fast as the
+   *   display refreshes. The wallpaper shell caps it — a desktop-level window
+   *   is always "visible", so none of the browser's hidden-tab throttling
+   *   applies and the scene would otherwise pull the GPU forever.
+   */
+  constructor(canvas: HTMLCanvasElement, animated: boolean, maxFps = 0) {
     this.animated = animated;
+    this.minFrameMs = maxFps > 0 ? 1000 / maxFps : 0;
+    this.maxDelta = Math.max(0.05, this.minFrameMs * 0.002);
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
@@ -329,9 +343,20 @@ export class WeatherSceneEngine {
 
   private renderFrame = (time: number): void => {
     if (this.disposed) return;
+    // Under a cap, stay in the rAF chain but skip the work. lastFrame only
+    // advances on a rendered frame, so delta still covers the whole skipped
+    // interval and the rain falls at the same speed, just in bigger steps.
+    if (
+      this.animated &&
+      this.minFrameMs > 0 &&
+      time - this.lastFrame < this.minFrameMs
+    ) {
+      this.frameHandle = requestAnimationFrame(this.renderFrame);
+      return;
+    }
     const elapsed = time * 0.001;
     const delta = this.animated
-      ? Math.min(0.05, Math.max(0, (time - this.lastFrame) * 0.001))
+      ? Math.min(this.maxDelta, Math.max(0, (time - this.lastFrame) * 0.001))
       : 0;
     this.lastFrame = time;
     if (this.night !== this.nightTarget) {

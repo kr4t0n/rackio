@@ -206,6 +206,14 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   bit us; also reserved: `filter`, `sample`, `buffer`, `precise`). A shader
   compile failure logs to console and renders black — check the browser
   console, not just the screenshot.
+- **The weather scene is frame-capped in the wallpaper shell** (30fps, via
+  `WeatherSceneEngine`'s `maxFps`). A desktop-level window is always
+  "visible", so none of the browser's hidden-tab throttling applies and the
+  scene would pull the GPU forever. The cap skips the render but stays in the
+  rAF chain, and `lastFrame` only advances on a rendered frame — so `delta`
+  covers the whole skipped interval and precipitation keeps its real speed.
+  `maxDelta` is derived from the cap so a capped frame isn't mistaken for a
+  stall. Measured with a temporary 3fps cap: 100 → 15 WebGL draw calls/sec.
 - **Weather card is capped at one instance** (`maxInstances: 1`) because each
   scene owns a WebGL context (browsers allow ~8-16 per page). The catalog
   disables Add at the cap. A shared-renderer refactor would lift this.
@@ -323,14 +331,13 @@ polish is high — compare against the reference design in `.argus/uploads/`.
 
 - Card drag is pointer-only; keyboard move actions (via card menu) are a
   planned follow-up.
-- **The weather scene renders continuously in the wallpaper shell.** A desktop
-  window is always "visible", so there is no tab-hidden throttling — on a
-  laptop this is the Mac app's main battery cost. `engine.ts` should take a
-  frame cap (or pause on `isWallpaper`) before the app is used daily.
 - The wallpaper shell clips anything past the screen edge (`overflow: hidden`
   — there is nothing to scroll with on a desktop). A board taller than the
-  display silently loses its bottom cards; a "fit to screen" arrangement or a
-  per-shell layout is the fix if this bites.
+  display loses its bottom cards. Left as-is deliberately: the failure is
+  visible (a half-drawn card at the edge), the board is hand-arranged, and
+  columns already scale with width so a wide display packs more per row. If it
+  ever needs a real fix, that fix is a per-shell layout — i.e. the multiple
+  boards rung on the storage ladder — not a special case here.
 - "Reset board" from the reference design was deliberately dropped (Kyle:
   demo-only affordance) — don't reintroduce it.
 - Service-tile icons are auto-monograms; real service icons (or a picker)
