@@ -26,7 +26,7 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
     the `CardDefinition` contract in `registry.tsx` (Component + Settings +
     zod config schema + supported footprints + optional `maxInstances`); the
     board never knows card internals. Current types: `weather`, `adguard`,
-    `downloader`, `calendar`, `calibre`, `service-tile`, `clock` (the Time
+    `downloader`, `plex`, `calendar`, `calibre`, `service-tile`, `clock` (the Time
     card — type key kept for board compatibility). The `utility` placeholder
     was removed once the real cards landed; boards that still reference it
     drop the card on load via `sanitizeBoardState`, which is the intended
@@ -266,6 +266,15 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   server keeps an in-memory ring of download-rate samples per card and sends
   ages alongside for the chart's "30s ago" labels; the ring resets on
   restart by design (no DB — see the storage decision).
+- **Plex authenticates with a token, not a password** (`X-Plex-Token`
+  header) and speaks JSON only when asked (`Accept: application/json`).
+  Continue-watching comes from `/library/onDeck`, which every server
+  version supports — `/hubs/continueWatching` is newer-only. Artwork is
+  proxied through `/api/plex/art`, which runs it via Plex's own
+  `/photo/:/transcode` so posters arrive pre-resized; the path is
+  restricted to `/library/` and `/photo/` so it can't be turned into an
+  open proxy. Deep links need `machineIdentifier` from `/`, hence the two
+  parallel requests. `scripts/mock-plex.mjs` fakes the whole thing on :8099.
 - **AdGuard = third connector on the same shape** (settings-UI connection →
   connections.json, validate-before-save with URL candidates so a pasted
   `#/dashboard` URL works). Stats come from

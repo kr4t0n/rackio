@@ -41,6 +41,7 @@ import { calendarCard } from "./calendar";
 import { calibreCard } from "./calibre";
 import { clockCard } from "./clock";
 import { downloaderCard } from "./downloader";
+import { plexCard } from "./plex";
 import { serviceTileCard } from "./service-tile";
 import { weatherCard } from "./weather";
 
@@ -50,6 +51,7 @@ const definitions = [
   weatherCard,
   adguardCard,
   downloaderCard,
+  plexCard,
   calendarCard,
   calibreCard,
   serviceTileCard,

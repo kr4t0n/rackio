@@ -313,3 +313,62 @@ export function saveDownloaderConnection(
 export function clearDownloaderConnection(instanceId: string): Promise<void> {
   return request(`/api/downloader/${instanceId}/connection`, { method: "DELETE" });
 }
+
+export interface PlexItem {
+  id: string;
+  title: string;
+  showTitle?: string;
+  detail: string;
+  progress: number;
+  artPath?: string;
+  posterPath?: string;
+  webUrl?: string;
+}
+
+export interface PlexState {
+  configured: boolean;
+  serverName?: string;
+  items?: PlexItem[];
+  error?: "unauthorized" | "unreachable" | "not-plex";
+}
+
+export function fetchPlexState(): Promise<PlexState> {
+  return request<PlexState>("/api/plex/state");
+}
+
+/** Artwork is proxied so the Plex token never reaches the browser. */
+export function plexArtUrl(path: string, width: number, height: number): string {
+  return `/api/plex/art?path=${encodeURIComponent(path)}&w=${width}&h=${height}`;
+}
+
+export interface PlexConnectionStatus {
+  configured: boolean;
+  baseUrl?: string;
+  label?: string;
+}
+
+export function fetchPlexConnection(): Promise<PlexConnectionStatus> {
+  return request<PlexConnectionStatus>("/api/plex/connection");
+}
+
+export interface PlexConnectResult {
+  ok: boolean;
+  items?: number;
+  error?: "unauthorized" | "unreachable" | "not-plex";
+}
+
+export function savePlexConnection(connection: {
+  baseUrl: string;
+  token: string;
+  label?: string;
+}): Promise<PlexConnectResult> {
+  return request<PlexConnectResult>("/api/plex/connection", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(connection),
+  });
+}
+
+export function clearPlexConnection(): Promise<void> {
+  return request("/api/plex/connection", { method: "DELETE" });
+}

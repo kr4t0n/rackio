@@ -24,6 +24,14 @@ export interface AdguardConnection {
   password: string;
 }
 
+/** Plex authenticates with a token rather than a username/password. */
+export interface PlexConnection {
+  baseUrl: string;
+  token: string;
+  /** Optional display name overriding the server's own friendlyName. */
+  label?: string;
+}
+
 /** Per-card: each downloader card points at its own torrent client. */
 export interface DownloaderConnection {
   kind: "qbittorrent" | "transmission";
@@ -38,6 +46,7 @@ interface ConnectionsFile {
   calibre?: CalibreConnection;
   calendar?: CalendarConnection;
   adguard?: AdguardConnection;
+  plex?: PlexConnection;
   /** Keyed by card instance id. */
   downloaders?: Record<string, DownloaderConnection>;
 }
@@ -52,6 +61,9 @@ export interface ConnectionStore {
   loadAdguard(): Promise<AdguardConnection | null>;
   saveAdguard(connection: AdguardConnection): Promise<void>;
   clearAdguard(): Promise<void>;
+  loadPlex(): Promise<PlexConnection | null>;
+  savePlex(connection: PlexConnection): Promise<void>;
+  clearPlex(): Promise<void>;
   loadDownloader(instanceId: string): Promise<DownloaderConnection | null>;
   saveDownloader(
     instanceId: string,
@@ -142,6 +154,24 @@ export function createConnectionStore(dataDir: string): ConnectionStore {
     clearAdguard() {
       return write((file) => {
         delete file.adguard;
+      });
+    },
+    async loadPlex() {
+      const { plex } = await read();
+      return plex &&
+        typeof plex.baseUrl === "string" &&
+        typeof plex.token === "string"
+        ? plex
+        : null;
+    },
+    savePlex(connection: PlexConnection) {
+      return write((file) => {
+        file.plex = connection;
+      });
+    },
+    clearPlex() {
+      return write((file) => {
+        delete file.plex;
       });
     },
     async loadDownloader(instanceId: string) {

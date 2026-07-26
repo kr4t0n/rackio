@@ -22,6 +22,17 @@ import {
   resolveDownloader,
 } from "./connectors/downloader.ts";
 import {
+  clearPlexArtCache,
+  clearPlexCache,
+  fetchPlex,
+  fetchPlexArt,
+  getPlexState,
+  initPlex,
+  isPlexArtPath,
+  normalizePlexUrl,
+  resolvePlexConnection,
+} from "./connectors/plex.ts";
+import {
   clearCalendarCache,
   fetchFeed,
   getFeed,
@@ -63,6 +74,7 @@ initCalibre(connections, dataDir);
 initCalendar(connections);
 initAdguard(connections);
 initDownloader(connections);
+initPlex(connections);
 
 const api = new Hono();
 
@@ -298,6 +310,68 @@ api.put("/adguard/connection", async (c) => {
 api.delete("/adguard/connection", async (c) => {
   await connections.clearAdguard();
   clearAdguardCache();
+  return c.json({ ok: true });
+});
+
+api.get("/plex/state", async (c) => c.json(await getPlexState()));
+
+// Artwork proxy: the browser never sees the Plex token, and the transcoder
+// resizes server-side so a queue of posters stays small.
+api.get("/plex/art", async (c) => {
+  const path = c.req.query("path") ?? "";
+  if (!isPlexArtPath(path)) return c.json({ error: "invalid art path" }, 400);
+  const width = Math.min(1600, Math.max(40, Number(c.req.query("w")) || 480));
+  const height = Math.min(1600, Math.max(40, Number(c.req.query("h")) || 270));
+  const art = await fetchPlexArt(path, width, height);
+  if (!art) return c.json({ error: "artwork unavailable" }, 404);
+  return c.body(art.body, 200, {
+    "Content-Type": art.contentType,
+    "Cache-Control": "public, max-age=3600",
+  });
+});
+
+api.get("/plex/connection", async (c) => {
+  const connection = await resolvePlexConnection();
+  if (!connection) return c.json({ configured: false });
+  // The token is a credential — report only that one is set.
+  return c.json({
+    configured: true,
+    baseUrl: connection.baseUrl,
+    label: connection.label,
+  });
+});
+
+const plexConnectionSchema = z.object({
+  baseUrl: z.string().min(1).max(200),
+  token: z.string().min(1).max(200),
+  label: z.string().max(40).optional(),
+});
+
+api.put("/plex/connection", async (c) => {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "invalid JSON" }, 400);
+  }
+  const parsed = plexConnectionSchema.safeParse(body);
+  if (!parsed.success) return c.json({ error: "invalid connection details" }, 400);
+  const baseUrl = normalizePlexUrl(parsed.data.baseUrl);
+  if (!baseUrl) return c.json({ error: "invalid Plex URL" }, 400);
+
+  const candidate = { ...parsed.data, baseUrl };
+  const state = await fetchPlex(candidate);
+  if (state.error) return c.json({ ok: false, error: state.error });
+  await connections.savePlex(candidate);
+  clearPlexCache();
+  clearPlexArtCache();
+  return c.json({ ok: true, items: state.items?.length ?? 0 });
+});
+
+api.delete("/plex/connection", async (c) => {
+  await connections.clearPlex();
+  clearPlexCache();
+  clearPlexArtCache();
   return c.json({ ok: true });
 });
 

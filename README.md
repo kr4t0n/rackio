@@ -21,7 +21,9 @@ picker in settings), **adguard** (DNS blocking stats with an interactive
 hourly sparkline, top blocked domains, and per-client breakdown from AdGuard
 Home's API), **downloader** (live transfer queue and throughput from
 qBittorrent or Transmission — one card per client, so several can sit on the
-board at once), **calendar** (month view, 12-day strip, and upcoming
+board at once), **plex** (continue-watching hero plus queue from a Plex
+server, with proxied artwork and deep links into the Plex web app),
+**calendar** (month view, 12-day strip, and upcoming
 agenda from an iCal subscription configured in settings — recurrences
 expanded server-side), **calibre library** (fresh reads from Calibre-Web's
 OPDS catalog with proxied covers and deep links; connect from the card's
@@ -142,6 +144,10 @@ the live service and stores them in `DATA_DIR/connections.json` (mode
   cached 1 min
 - `GET/PUT/DELETE /api/adguard/connection` — instance setup, validated against
   the live API before saving
+- `GET /api/plex/state` — Plex continue-watching queue, cached 30 s
+- `GET /api/plex/art?path=&w=&h=` — artwork proxy (token stays server-side)
+- `GET/PUT/DELETE /api/plex/connection` — server + token setup, validated
+  against the live server before saving
 - `GET /api/downloader/:cardId/stats` — torrent client queue + throughput
   samples for one card
 - `GET/PUT/DELETE /api/downloader/:cardId/connection` — per-card client setup;
@@ -152,7 +158,8 @@ for developing the calibre card without a real library;
 `node scripts/mock-ical.mjs` serves a fixture ICS feed on :8094 for the
 calendar card; `node scripts/mock-adguard.mjs` fakes the AdGuard Home API on
 :8095; `node scripts/mock-downloader.mjs` fakes qBittorrent on :8097 (or
-`KIND=transmission PORT=8098 …` for Transmission).
+`KIND=transmission PORT=8098 …` for Transmission);
+`node scripts/mock-plex.mjs` fakes a Plex server on :8099.
 
 ## Project structure
 
