@@ -6,6 +6,13 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // react-draggable (inside react-grid-layout) reads
+  // `process.env.DRAGGABLE_DEBUG` on every drag start. Vite's dep optimizer
+  // only defines NODE_ENV, so in dev the bare `process` throws inside the
+  // mousedown handler and dragging dies silently — the card just never moves.
+  // The production build substitutes it, which is why only `npm run dev` was
+  // affected.
+  define: { "process.env.DRAGGABLE_DEBUG": "false" },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
