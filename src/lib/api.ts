@@ -316,6 +316,7 @@ export function clearDownloaderConnection(instanceId: string): Promise<void> {
 
 export interface PlexItem {
   id: string;
+  kind: "watching" | "recent";
   title: string;
   showTitle?: string;
   detail: string;
@@ -329,6 +330,8 @@ export interface PlexState {
   configured: boolean;
   serverName?: string;
   items?: PlexItem[];
+  /** Recently added, deduped against `items`; backfills the queue. */
+  recent?: PlexItem[];
   error?: "unauthorized" | "unreachable" | "not-plex";
 }
 

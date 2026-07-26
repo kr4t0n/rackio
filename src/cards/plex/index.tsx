@@ -78,7 +78,7 @@ function Feature({
         className={`absolute inset-x-3 bottom-3 z-1 min-w-0 ${size === "big" ? "" : "inset-x-2.5 bottom-2.5"}`}
       >
         <span className="mb-1 block font-mono text-[8px] leading-[1.3] font-semibold tracking-[0.09em] uppercase">
-          Continue watching
+          {item.kind === "recent" ? "Recently added" : "Continue watching"}
         </span>
         <span
           className={`block truncate font-display font-semibold tracking-[-0.025em] ${
@@ -99,10 +99,12 @@ function Feature({
             {item.detail || item.title}
           </span>
         </span>
-        <ProgressBar
-          value={item.progress}
-          className={`mt-2 h-[3px] w-[min(230px,76%)]`}
-        />
+        {item.kind === "watching" && (
+          <ProgressBar
+            value={item.progress}
+            className={`mt-2 h-[3px] w-[min(230px,76%)]`}
+          />
+        )}
       </span>
     </>
   );
@@ -128,14 +130,19 @@ function Feature({
 /** Queue tiles: poster on top (big) or beside the copy (wide). */
 function QueueItem({ item, layout }: { item: PlexItem; layout: "stacked" | "row" }) {
   const poster = item.posterPath
-    ? plexArtUrl(item.posterPath, layout === "row" ? 220 : 400, layout === "row" ? 220 : 300)
+    ? plexArtUrl(item.posterPath, layout === "row" ? 170 : 400, layout === "row" ? 190 : 300)
     : null;
   const inner = (
     <>
-      <span className="min-h-0 overflow-hidden bg-[color-mix(in_oklch,var(--fg)_8%,transparent)]">
+      <span className="relative min-h-0 overflow-hidden bg-[color-mix(in_oklch,var(--fg)_8%,transparent)]">
         {poster ? (
           <img src={poster} alt="" loading="lazy" className="h-full w-full object-cover" />
         ) : null}
+        {item.kind === "recent" && (
+          <span className="absolute top-1 left-1 rounded-[4px] bg-[color-mix(in_oklch,var(--accent)_88%,var(--bg))] px-1 py-px font-mono text-[7px] leading-[1.4] font-semibold tracking-[0.08em] text-bg uppercase">
+            New
+          </span>
+        )}
       </span>
       <span className="min-w-0 self-center px-2 py-1.5">
         <span className="block truncate text-[10px] font-semibold">
@@ -144,13 +151,15 @@ function QueueItem({ item, layout }: { item: PlexItem; layout: "stacked" | "row"
         <span className="mt-[3px] block truncate font-mono text-[8px] leading-[1.2] text-muted">
           {item.detail}
         </span>
-        <ProgressBar value={item.progress} className="mt-1.5 h-0.5" />
+        {item.kind === "watching" && (
+          <ProgressBar value={item.progress} className="mt-1.5 h-0.5" />
+        )}
       </span>
     </>
   );
   const frame =
     layout === "row"
-      ? "grid min-h-0 min-w-0 grid-cols-[72px_minmax(0,1fr)] grid-rows-[minmax(0,1fr)] overflow-hidden rounded-[9px] border border-border bg-[color-mix(in_oklch,var(--surface)_86%,var(--fg)_3%)] text-left text-fg"
+      ? "grid min-h-0 min-w-0 grid-cols-[54px_minmax(0,1fr)] grid-rows-[minmax(0,1fr)] overflow-hidden rounded-[9px] border border-border bg-[color-mix(in_oklch,var(--surface)_86%,var(--fg)_3%)] text-left text-fg"
       : "grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden rounded-[12px] border border-border bg-[color-mix(in_oklch,var(--surface)_86%,var(--fg)_3%)] text-left text-fg";
   return item.webUrl ? (
     <a
@@ -167,6 +176,13 @@ function QueueItem({ item, layout }: { item: PlexItem; layout: "stacked" | "row"
   );
 }
 
+/** Name the queue for what's in it — the hero already says which it is. */
+function railLabel(rail: PlexItem[]): string {
+  return rail.every((item) => item.kind === "recent")
+    ? "Recently added"
+    : "Up next";
+}
+
 function EmptyState({ state }: { state?: PlexState }) {
   const [title, caption] = !state
     ? ["Reaching the server…", ""]
@@ -181,7 +197,7 @@ function EmptyState({ state }: { state?: PlexState }) {
           ? ["Wrong address", "That URL didn't answer as a Plex server."]
           : state.error === "unreachable"
             ? ["Server unreachable", "Plex didn't answer — is it running?"]
-            : ["Nothing on deck", "Start watching something and it'll appear here."];
+            : ["Nothing to show", "No library activity yet — start watching something."];
   return (
     <div className="flex h-full min-h-0 flex-col justify-end">
       <p className="m-0 text-[17px] leading-[1.2] tracking-[-0.02em]">{title}</p>
@@ -197,7 +213,10 @@ function EmptyState({ state }: { state?: PlexState }) {
 function PlexCard({ footprint }: CardComponentProps<PlexConfig>) {
   const query = usePlex();
   const state = query.data;
-  const items = state?.items ?? [];
+  // Most servers have exactly one thing on deck, which would leave the queue
+  // rail empty — recently-added backfills it (and carries the hero if nothing
+  // is in progress at all).
+  const items = [...(state?.items ?? []), ...(state?.recent ?? [])];
   const live = Boolean(state?.configured && !state.error && items.length > 0);
   const compact = footprint !== "big";
 
@@ -258,7 +277,7 @@ function PlexCard({ footprint }: CardComponentProps<PlexConfig>) {
     return (
       <div className="grid h-full grid-rows-[auto_minmax(0,1fr)] gap-2 p-2.5">
         {header}
-        <div className="grid min-h-0 grid-cols-[minmax(0,1.28fr)_minmax(150px,0.72fr)] grid-rows-[minmax(0,1fr)] gap-2.5">
+        <div className="grid min-h-0 grid-cols-[minmax(0,1.2fr)_minmax(158px,0.8fr)] grid-rows-[minmax(0,1fr)] gap-2.5">
           <Feature item={items[0]} size="wide" />
           <div className="grid min-h-0 grid-rows-2 gap-1.5">
             {items.slice(1, 3).map((item) => (
@@ -270,6 +289,7 @@ function PlexCard({ footprint }: CardComponentProps<PlexConfig>) {
     );
   }
 
+  const rail = items.slice(1, 4);
   return (
     <div className="grid h-full grid-rows-[auto_minmax(0,1fr)] gap-2.5 p-3.5">
       {header}
@@ -277,13 +297,13 @@ function PlexCard({ footprint }: CardComponentProps<PlexConfig>) {
         <Feature item={items[0]} size="big" />
         <section className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
           <div className="mb-1.5 flex min-h-[20px] items-center justify-between gap-2.5">
-            <h2 className="m-0 text-[11px] font-semibold">Continue watching</h2>
+            <h2 className="m-0 text-[11px] font-semibold">{railLabel(rail)}</h2>
             <span className="font-mono text-[8px] tracking-[0.07em] text-muted uppercase">
               {items.length} titles
             </span>
           </div>
           <div className="grid min-h-0 grid-cols-3 gap-2">
-            {items.slice(1, 4).map((item) => (
+            {rail.map((item) => (
               <QueueItem key={item.id} item={item} layout="stacked" />
             ))}
           </div>

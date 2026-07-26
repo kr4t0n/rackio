@@ -9,6 +9,9 @@ import { createServer } from "node:http";
 const port = Number(process.env.PORT ?? 8099);
 const token = process.env.MOCK_TOKEN ?? "demo";
 
+/** ONDECK=1 mimics the common real-world case: one thing in progress. */
+const onDeckCount = Number(process.env.ONDECK ?? 4);
+
 const ITEMS = [
   { ratingKey: "1201", key: "/library/metadata/1201", type: "episode",
     title: "Signal Tide", grandparentTitle: "Signal Tide", parentIndex: 1, index: 4,
@@ -28,6 +31,22 @@ const ITEMS = [
     art: "/library/metadata/88/art/1", thumb: "/library/metadata/88/thumb/1" },
 ];
 
+/** Recently added — no view offset, mixed types, plus one album to be filtered. */
+const RECENT = [
+  { ratingKey: "2401", key: "/library/metadata/2401", type: "movie",
+    title: "Harbour Lights", year: 2025, duration: 6_720_000, hue: 265,
+    art: "/library/metadata/2401/art/1", thumb: "/library/metadata/2401/thumb/1" },
+  { ratingKey: "2402", key: "/library/metadata/2402", type: "season",
+    title: "Season 3", parentTitle: "Coastline", index: 3, leafCount: 8, hue: 95,
+    art: "/library/metadata/2400/art/1", thumb: "/library/metadata/2402/thumb/1" },
+  { ratingKey: "2403", key: "/library/metadata/2403", type: "episode",
+    title: "Deep Field", grandparentTitle: "Orbital", parentIndex: 1, index: 2,
+    duration: 2_940_000, hue: 340,
+    art: "/library/metadata/2399/art/1", thumb: "/library/metadata/2403/thumb/1" },
+  { ratingKey: "2404", key: "/library/metadata/2404", type: "album",
+    title: "Not a video", hue: 40, thumb: "/library/metadata/2404/thumb/1" },
+];
+
 /** Deterministic art so screenshots are stable: gradient + title band. */
 function artSvg(item, width, height) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
@@ -42,9 +61,8 @@ function artSvg(item, width, height) {
 }
 
 function findByArtPath(path) {
-  return (
-    ITEMS.find((item) => item.art === path || item.thumb === path) ?? ITEMS[0]
-  );
+  const all = [...ITEMS, ...RECENT];
+  return all.find((item) => item.art === path || item.thumb === path) ?? all[0];
 }
 
 createServer((req, res) => {
@@ -77,7 +95,15 @@ createServer((req, res) => {
     );
   }
   if (url.pathname === "/library/onDeck") {
-    return res.end(JSON.stringify({ MediaContainer: { size: ITEMS.length, Metadata: ITEMS } }));
+    const deck = ITEMS.slice(0, onDeckCount);
+    return res.end(
+      JSON.stringify({ MediaContainer: { size: deck.length, Metadata: deck } }),
+    );
+  }
+  if (url.pathname === "/library/recentlyAdded") {
+    return res.end(
+      JSON.stringify({ MediaContainer: { size: RECENT.length, Metadata: RECENT } }),
+    );
   }
   res.statusCode = 404;
   res.end(JSON.stringify({ error: "not found" }));

@@ -2,7 +2,15 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { describeItem, fetchPlex, isPlexArtPath, mapItems, normalizePlexUrl } from "./plex.ts";
+import {
+  describeItem,
+  describeRecent,
+  fetchPlex,
+  isPlexArtPath,
+  mapItems,
+  normalizePlexUrl,
+  readRecentlyAdded,
+} from "./plex.ts";
 
 const EPISODE = {
   ratingKey: "1201",
@@ -27,6 +35,16 @@ const MOVIE = {
   viewOffset: 600_000,
   duration: 5_400_000,
   thumb: "/library/metadata/77/thumb/1",
+};
+
+const RECENT_MOVIE = {
+  ratingKey: "2401",
+  key: "/library/metadata/2401",
+  type: "movie",
+  title: "Harbour Lights",
+  year: 2025,
+  duration: 6_720_000,
+  thumb: "/library/metadata/2401/thumb/1",
 };
 
 describe("normalizePlexUrl", () => {
@@ -90,6 +108,70 @@ describe("mapItems", () => {
   });
 });
 
+describe("describeRecent", () => {
+  it("shows runtime rather than a bogus 'time left' for unwatched items", () => {
+    // describeItem would read the full duration as remaining time.
+    expect(describeItem({ type: "movie", year: 2025, duration: 6_720_000 })).toBe(
+      "2025 · 112 min left",
+    );
+    expect(describeRecent({ type: "movie", year: 2025, duration: 6_720_000 })).toBe(
+      "2025 · 1h 52m",
+    );
+  });
+
+  it("counts episodes for a newly added season", () => {
+    expect(describeRecent({ type: "season", index: 3, leafCount: 8 })).toBe(
+      "Season 3 · 8 episodes",
+    );
+  });
+
+  it("always says something, even for a bare entry", () => {
+    expect(describeRecent({ type: "movie" })).toBe("New in your library");
+  });
+});
+
+describe("readRecentlyAdded", () => {
+  const respond = (body: unknown) =>
+    new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+
+  const container = (metadata: unknown[]) => respond({ MediaContainer: { Metadata: metadata } });
+
+  it("keeps video, drops music, and skips anything already on deck", async () => {
+    const items = await readRecentlyAdded(
+      container([
+        { ratingKey: "1201", type: "episode", title: "Signal Tide" },
+        { ratingKey: "2404", type: "album", title: "Not a video" },
+        { ratingKey: "2402", type: "season", title: "Season 3", parentTitle: "Coastline", index: 3 },
+      ]),
+      "http://plex.lan",
+      "abc123",
+      new Set(["1201"]),
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ id: "2402", kind: "recent", showTitle: "Coastline" });
+  });
+
+  it("never reports progress for something unstarted", async () => {
+    const items = await readRecentlyAdded(
+      container([{ ratingKey: "9", type: "movie", duration: 1000, viewOffset: 500 }]),
+      "http://plex.lan",
+      "abc123",
+      new Set(),
+    );
+    expect(items[0].progress).toBe(0);
+  });
+
+  it("degrades to nothing when the server can't answer", async () => {
+    expect(await readRecentlyAdded(null, "http://plex.lan", "abc", new Set())).toEqual([]);
+    expect(
+      await readRecentlyAdded(new Response("nope", { status: 404 }), "http://p", "a", new Set()),
+    ).toEqual([]);
+    expect(
+      await readRecentlyAdded(new Response("<xml/>"), "http://p", "a", new Set()),
+    ).toEqual([]);
+  });
+});
+
 describe("isPlexArtPath", () => {
   it("allows Plex media paths only", () => {
     expect(isPlexArtPath("/library/metadata/1/thumb/2")).toBe(true);
@@ -114,7 +196,12 @@ describe("fetchPlex", () => {
       );
     }
     if (req.url?.startsWith("/library/onDeck")) {
-      return res.end(JSON.stringify({ MediaContainer: { Metadata: [EPISODE, MOVIE] } }));
+      return res.end(JSON.stringify({ MediaContainer: { Metadata: [EPISODE] } }));
+    }
+    if (req.url?.startsWith("/library/recentlyAdded")) {
+      return res.end(
+        JSON.stringify({ MediaContainer: { Metadata: [EPISODE, RECENT_MOVIE] } }),
+      );
     }
     res.statusCode = 404;
     res.end("{}");
@@ -132,6 +219,15 @@ describe("fetchPlex", () => {
     expect(state.error).toBeUndefined();
     expect(state.serverName).toBe("Rackio Media");
     expect(state.items?.[0].title).toBe("Signal Tide");
+  });
+
+  it("backfills the queue from recently added without repeating the resume", async () => {
+    // The common real case: one thing on deck, so the rail needs filling.
+    const state = await fetchPlex({ baseUrl: base(), token: "good-token" });
+    expect(state.items).toHaveLength(1);
+    expect(state.recent).toEqual([
+      expect.objectContaining({ id: "2401", kind: "recent", detail: "2025 · 1h 52m" }),
+    ]);
   });
 
   it("prefers an explicit card label over the server's own name", async () => {

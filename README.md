@@ -22,7 +22,9 @@ hourly sparkline, top blocked domains, and per-client breakdown from AdGuard
 Home's API), **downloader** (live transfer queue and throughput from
 qBittorrent or Transmission — one card per client, so several can sit on the
 board at once), **plex** (continue-watching hero plus queue from a Plex
-server, with proxied artwork and deep links into the Plex web app),
+server — the queue backfills from recently added, since most servers only
+have one thing in progress — with proxied artwork and deep links into the
+Plex web app),
 **calendar** (month view, 12-day strip, and upcoming
 agenda from an iCal subscription configured in settings — recurrences
 expanded server-side), **calibre library** (fresh reads from Calibre-Web's
@@ -104,7 +106,8 @@ npm run typecheck  # tsc across app, server, and tooling configs
 
 `node scripts/screenshot.mjs` captures dark/light/mobile screenshots of a
 running instance; `node scripts/smoke-board.mjs` drives the board headlessly
-(drag, footprints, settings, catalog, persistence) and fails on regressions.
+(drag, footprints, settings, catalog, persistence) and fails on regressions —
+point it at a production-mode server (`npm run start`, :8791 by default).
 Both take `BASE_URL` to point elsewhere and `CHROMIUM_PATH` to reuse a cached
 Chromium build.
 
@@ -159,7 +162,8 @@ for developing the calibre card without a real library;
 calendar card; `node scripts/mock-adguard.mjs` fakes the AdGuard Home API on
 :8095; `node scripts/mock-downloader.mjs` fakes qBittorrent on :8097 (or
 `KIND=transmission PORT=8098 …` for Transmission);
-`node scripts/mock-plex.mjs` fakes a Plex server on :8099.
+`node scripts/mock-plex.mjs` fakes a Plex server on :8099 (`ONDECK=1` to
+mimic the usual single in-progress item).
 
 ## Project structure
 

@@ -274,7 +274,21 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   `/photo/:/transcode` so posters arrive pre-resized; the path is
   restricted to `/library/` and `/photo/` so it can't be turned into an
   open proxy. Deep links need `machineIdentifier` from `/`, hence the two
-  parallel requests. `scripts/mock-plex.mjs` fakes the whole thing on :8099.
+  parallel requests. `scripts/mock-plex.mjs` fakes the whole thing on :8099
+  (`ONDECK=n` controls how many items are in progress).
+- **On-deck is usually one item, so the Plex queue is backfilled from
+  `/library/recentlyAdded`.** Real servers have exactly one thing in
+  progress, which left the wide card's rail and the big card's poster row
+  empty. `recent` is a separate field on `PlexState`, deduped against
+  `items` server-side, and the card concatenates the two. Recently-added
+  entries must *not* go through `describeItem` — with no `viewOffset` it
+  reads the full duration as "112 min left"; `describeRecent` gives runtime
+  instead. They also carry `kind: "recent"` so the UI drops the progress bar
+  (0% renders as a broken nub), shows a NEW badge, and switches the eyebrow
+  to "Recently added". A season entry names its show in `parentTitle`, not
+  `grandparentTitle`. Music albums are filtered out — the rail is video.
+  The third request is best-effort: a failure degrades to on-deck only
+  rather than erroring the card.
 - **AdGuard = third connector on the same shape** (settings-UI connection →
   connections.json, validate-before-save with URL candidates so a pasted
   `#/dashboard` URL works). Stats come from
@@ -314,6 +328,18 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   pattern appears anywhere in it (bash -c argv matches). Use
   `pkill -f 'server/index[.]ts'` in a Bash call that doesn't also spawn the
   server.
+- **`scripts/smoke-board.mjs` wants a production server** (`BASE_URL`
+  defaults to :8791, i.e. `NODE_ENV=production tsx server/index.ts` serving
+  `dist/`). Pointing it at the Vite dev port is a valid thing to do, but
+  read a drag failure there as a dev-mode problem, not a board regression.
+- **Anything a dependency reads off `process.env` needs a `define` entry**,
+  or it throws in `npm run dev` only. react-draggable (inside
+  react-grid-layout) reads `process.env.DRAGGABLE_DEBUG` at drag start;
+  Vite's dep optimizer defines *only* `NODE_ENV`, so the bare `process`
+  reference threw inside the mousedown handler and dragging died with no
+  visible error — the card simply never moved. The production build
+  substitutes it, so this was invisible outside dev. `vite.config.ts` now
+  defines it explicitly.
 - **tsconfig layout**: three referenced projects (`app`, `node` for
   vite/eslint configs, `server`), all `noEmit` — nothing is compiled to JS;
   `tsx` runs the server directly. `shared/` is included by both `app` and
