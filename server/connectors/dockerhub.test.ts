@@ -4,6 +4,7 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   architecturesOf,
+  describeFetchError,
   clearDockerHubToken,
   fetchDockerHub,
   mapImage,
@@ -64,6 +65,29 @@ describe("pickTag", () => {
   it("falls back to the newest tag of any shape", () => {
     expect(pickTag([tag("edge", "2026-01-01T00:00:00Z")])?.name).toBe("edge");
     expect(pickTag([])).toBeNull();
+  });
+});
+
+describe("describeFetchError", () => {
+  it("unwraps the reason undici hides under a bare 'fetch failed'", () => {
+    const wrapped = new TypeError("fetch failed", {
+      cause: new Error("getaddrinfo ENOTFOUND hub.docker.com"),
+    });
+    expect(describeFetchError(wrapped)).toBe(
+      "fetch failed ← getaddrinfo ENOTFOUND hub.docker.com",
+    );
+  });
+
+  it("follows a deeper chain but doesn't run away", () => {
+    const deep = new Error("a", {
+      cause: new Error("b", { cause: new Error("c", { cause: new Error("d") }) }),
+    });
+    expect(describeFetchError(deep)).toBe("a ← b ← c ← d");
+  });
+
+  it("copes with a plain error and with a non-error throw", () => {
+    expect(describeFetchError(new Error("boom"))).toBe("boom");
+    expect(describeFetchError("nope")).toBe("nope");
   });
 });
 

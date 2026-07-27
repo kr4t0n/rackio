@@ -328,7 +328,15 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   moving — and both read from the same cached response. Each candidate keeps
   its own digest/size/arches, because the detail sheet describes the tag on
   screen. buildx attestation manifests report `architecture: "unknown"` and
-  are filtered out.
+  are filtered out. It is also the only connector that can fail purely on
+  *egress*: undici reports any connection-level failure as a bare
+  `fetch failed` and hides the reason in `error.cause`, so the catch unwraps
+  the chain (`describeFetchError`) — `getaddrinfo ENOTFOUND` means DNS,
+  `Connect Timeout Error (attempted address: …)` means the address is
+  black-holed, which is what DNS poisoning of hub.docker.com looks like from
+  inside a cluster. Diagnose from the pod log, not from a dev machine: a
+  workstation often sits behind a gateway that transparently proxies what the
+  pod cannot reach.
 - **AdGuard = third connector on the same shape** (settings-UI connection →
   connections.json, validate-before-save with URL candidates so a pasted
   `#/dashboard` URL works). Stats come from

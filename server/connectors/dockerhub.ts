@@ -91,6 +91,23 @@ interface HubTag {
   images?: Array<{ architecture?: string; os?: string }>;
 }
 
+/**
+ * undici reports every connection-level failure as a bare "fetch failed" and
+ * hides the reason one level down in `cause` — which is the difference
+ * between "DNS is broken", "the address is black-holed" and "TLS was
+ * intercepted". Worth unwrapping: this connector is the only one that leaves
+ * the rack, so it's the one whose failures need explaining from a pod log.
+ */
+export function describeFetchError(error: unknown): string {
+  const chain: string[] = [];
+  let current: unknown = error;
+  while (current instanceof Error && chain.length < 4) {
+    chain.push(current.message);
+    current = current.cause;
+  }
+  return chain.length > 0 ? chain.join(" ← ") : String(error);
+}
+
 const byNewest = <T extends { last_updated?: string }>(a: T, b: T) =>
   Date.parse(b.last_updated ?? "") - Date.parse(a.last_updated ?? "");
 
@@ -257,7 +274,9 @@ export async function fetchDockerHub(
       images,
     };
   } catch (error) {
-    console.warn("dockerhub:", (error as Error).message ?? error);
+    console.warn(
+      `dockerhub: could not reach ${apiBase} — ${describeFetchError(error)}`,
+    );
     return { configured: true, error: "unreachable" };
   }
 }
