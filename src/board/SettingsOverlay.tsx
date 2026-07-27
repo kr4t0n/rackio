@@ -188,7 +188,7 @@ function SettingsPanel({
         {/* Header and actions are pinned; only the settings body scrolls, so
             Save stays reachable no matter how tall a card's form is. The panel
             still sizes to its content — the cap only bites on long forms. */}
-        <div className="flex max-h-[min(760px,calc(100dvh-32px))] flex-col rounded-[20px] border border-border bg-surface shadow-[0_28px_90px_color-mix(in_oklch,var(--bg)_78%,transparent)] backface-hidden">
+        <div className="flex max-h-[min(860px,calc(100dvh-32px))] flex-col rounded-[20px] border border-border bg-surface shadow-[0_28px_90px_color-mix(in_oklch,var(--bg)_78%,transparent)] backface-hidden">
           <div className="flex shrink-0 items-start justify-between gap-3.5 p-6 pb-5">
             <div>
               <p className="m-0 mb-[3px] font-mono text-[10px] font-[550] tracking-[0.08em] uppercase text-muted">

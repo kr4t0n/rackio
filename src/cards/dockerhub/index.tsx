@@ -493,10 +493,9 @@ function DockerHubSettings({
   const failure = connect.data?.ok === false ? connect.data.error : null;
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border bg-bg p-3.5">
+    <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-bg p-3.5">
       <p className="m-0 text-xs leading-[1.5] text-muted">
-        Point the card at a Docker Hub user or organisation. Public images need
-        no credentials; add an access token to see private ones. The token is
+        Point the card at a Docker Hub user or organisation. Any token is
         checked, then stored on the rackio server — never in the board.
       </p>
       <Field label="Namespace" hint="Your Docker Hub user or organisation, e.g. kr4t0n.">
@@ -509,7 +508,7 @@ function DockerHubSettings({
           />
         )}
       </Field>
-      <Field label="Username" hint="Optional — only needed for private repositories.">
+      <Field label="Username">
         {(id) => (
           <TextInput
             id={id}
@@ -520,7 +519,7 @@ function DockerHubSettings({
       </Field>
       <Field
         label="Access token"
-        hint="Docker Hub → Account settings → Personal access tokens (read-only is enough)."
+        hint="Both are optional, and only needed for private repositories. Docker Hub → Account settings → Personal access tokens; read-only is enough."
       >
         {(id) => (
           <TextInput

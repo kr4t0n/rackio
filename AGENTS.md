@@ -175,7 +175,10 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   actions outside it. The footer's divider is driven by a ResizeObserver
   measuring real overflow, so it only appears when something is actually
   scrolled under it — a form that swaps size (connect → connected) is
-  watched too.
+  watched too. The panel sizes to its content up to
+  `min(860px, 100dvh - 32px)`; the tallest form (Docker Hub's connect form,
+  762px) fits without scrolling from an 800px-tall viewport up, so keep an
+  eye on that budget when adding fields.
 - **A `<dialog>`'s close event is asynchronous** (the Docker Hub image
   sheet). `close()` queues the event rather than firing it inline, so under
   StrictMode's mount/unmount/mount the teardown's `close()` lands *after* the
