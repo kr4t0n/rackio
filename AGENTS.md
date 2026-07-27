@@ -337,6 +337,17 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   inside a cluster. Diagnose from the pod log, not from a dev machine: a
   workstation often sits behind a gateway that transparently proxies what the
   pod cannot reach.
+- **Node ignores `HTTPS_PROXY`** — built-in support only lands in Node 24
+  behind `NODE_USE_ENV_PROXY`, and the image is on Node 22, so `server/proxy.ts`
+  reads the conventional variables and hands `fetch` an undici `ProxyAgent`
+  via the `dispatcher` option (declared in `ProxyableInit`; the DOM types
+  don't know about it). It is applied **per call, not as a global
+  dispatcher** — rack services are on the LAN and must keep going direct, so
+  only the Docker Hub connector opts in. Agents are cached per proxy URL
+  because a fresh `ProxyAgent` per request leaks sockets. Note `undici` is a
+  direct dependency purely for this: passing its dispatcher to Node's own
+  bundled-undici `fetch` works, and `server/proxy.test.ts` pins that with a
+  real CONNECT proxy.
 - **AdGuard = third connector on the same shape** (settings-UI connection →
   connections.json, validate-before-save with URL candidates so a pasted
   `#/dashboard` URL works). Stats come from

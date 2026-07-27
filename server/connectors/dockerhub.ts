@@ -1,4 +1,5 @@
 import type { ConnectionStore, DockerHubConnection } from "../connection-store.ts";
+import { withProxy } from "../proxy.ts";
 
 /**
  * Docker Hub connector. Lists a namespace's images with the tag you'd
@@ -98,11 +99,26 @@ interface HubTag {
  * intercepted". Worth unwrapping: this connector is the only one that leaves
  * the rack, so it's the one whose failures need explaining from a pod log.
  */
+function messageOf(error: Error): string {
+  // Happy Eyeballs tries every resolved address and bundles the failures into
+  // an AggregateError whose own message is empty — the useful text (one entry
+  // per address) is in `errors`.
+  if (error instanceof AggregateError && error.errors?.length > 0) {
+    const inner = error.errors
+      .map((nested) => (nested instanceof Error ? nested.message : String(nested)))
+      .filter(Boolean)
+      .join("; ");
+    return error.message ? `${error.message}: ${inner}` : inner;
+  }
+  return error.message;
+}
+
 export function describeFetchError(error: unknown): string {
   const chain: string[] = [];
   let current: unknown = error;
   while (current instanceof Error && chain.length < 4) {
-    chain.push(current.message);
+    const text = messageOf(current);
+    if (text) chain.push(text);
     current = current.cause;
   }
   return chain.length > 0 ? chain.join(" ← ") : String(error);
@@ -194,12 +210,16 @@ async function login(
   if (tokenCache && tokenCache.key === key && tokenCache.expiresAt > Date.now()) {
     return tokenCache.token;
   }
-  const response = await fetch(`${apiBase}/v2/users/login/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ username, password: token }),
-    signal: AbortSignal.timeout(12_000),
-  });
+  const loginUrl = `${apiBase}/v2/users/login/`;
+  const response = await fetch(
+    loginUrl,
+    withProxy(loginUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ username, password: token }),
+      signal: AbortSignal.timeout(12_000),
+    }),
+  );
   if (!response.ok) return null;
   const body = (await response.json()) as { token?: string };
   if (!body.token) return null;
@@ -227,10 +247,10 @@ export async function fetchDockerHub(
     }
 
     const listUrl = `${apiBase}/v2/repositories/${encodeURIComponent(connection.namespace)}/?page_size=100`;
-    const listResponse = await fetch(listUrl, {
-      headers,
-      signal: AbortSignal.timeout(15_000),
-    });
+    const listResponse = await fetch(
+      listUrl,
+      withProxy(listUrl, { headers, signal: AbortSignal.timeout(15_000) }),
+    );
     if (listResponse.status === 401 || listResponse.status === 403) {
       return { configured: true, error: "unauthorized" };
     }
@@ -252,10 +272,10 @@ export async function fetchDockerHub(
         repositories.map(async (repository) => {
           try {
             const tagsUrl = `${apiBase}/v2/repositories/${encodeURIComponent(connection.namespace)}/${encodeURIComponent(repository.name ?? "")}/tags/?page_size=25&ordering=last_updated`;
-            const response = await fetch(tagsUrl, {
-              headers,
-              signal: AbortSignal.timeout(15_000),
-            });
+            const response = await fetch(
+              tagsUrl,
+              withProxy(tagsUrl, { headers, signal: AbortSignal.timeout(15_000) }),
+            );
             if (!response.ok) return null;
             const body = (await response.json()) as { results?: HubTag[] };
             return mapImage(repository, body.results ?? [], connection.namespace);

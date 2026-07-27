@@ -139,6 +139,16 @@ ingress:
 extraEnv: []
 # - name: TZ
 #   value: Europe/London
+#
+# Set an egress proxy if the cluster can't reach the public internet
+# directly — the Docker Hub card is the only integration that leaves your
+# rack, so it is the only one that needs it. Rack services always go direct.
+# - name: HTTPS_PROXY
+#   value: http://proxy.internal:3128
+# - name: HTTP_PROXY
+#   value: http://proxy.internal:3128
+# - name: NO_PROXY
+#   value: .svc,.cluster.local,10.0.0.0/8
 
 # Extra env sourced from existing ConfigMaps/Secrets.
 extraEnvFrom: []

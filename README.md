@@ -123,8 +123,16 @@ Chromium build.
 | `HOST` | `0.0.0.0` | Bind address (all interfaces — rackio is a LAN app) |
 | `DATA_DIR` | `data` | Where `board.json` lives; mount a volume here in Docker/k8s |
 | `NODE_ENV` | — | `production` makes the server serve `dist/` |
+| `HTTPS_PROXY` / `HTTP_PROXY` | — | Egress proxy for the Docker Hub card (also `ALL_PROXY`; lowercase spellings win, as in curl) |
+| `NO_PROXY` | — | Hosts that bypass the proxy; `*` disables it entirely |
 
 The server loads `.env` automatically at startup (`process.loadEnvFile`).
+
+Node ignores `HTTPS_PROXY` on its own, so rackio wires it up explicitly — and
+only for **Docker Hub**, the one integration that leaves your rack. Calibre,
+AdGuard, Plex, the calendar feed and torrent clients always connect directly,
+so pointing rackio at an internet proxy can't break the cards that reach your
+own services.
 
 **Integrations are not configured through the environment.** Calibre,
 the calendar feed, AdGuard, Plex, Docker Hub, and torrent clients are each
