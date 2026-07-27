@@ -13,22 +13,30 @@ import type { ConnectionStore, DockerHubConnection } from "../connection-store.t
 
 const HUB_API = "https://hub.docker.com";
 
-export interface DockerImage {
-  /** "namespace/repo", the name you'd type. */
+export interface DockerTag {
   name: string;
-  repo: string;
-  /** The tag worth showing — see pickTag. */
-  tag: string;
-  isPrivate: boolean;
   digest?: string;
   sizeBytes?: number;
   /** e.g. ["amd64", "arm64"]; attestation manifests are dropped. */
   architectures: string[];
   /** ISO — formatted client-side so it doesn't go stale inside the cache. */
   updatedAt?: string;
+}
+
+export interface DockerImage {
+  /** "namespace/repo", the name you'd type. */
+  name: string;
+  repo: string;
+  isPrivate: boolean;
   description?: string;
-  pullCommand: string;
   webUrl: string;
+  /**
+   * Both candidates travel together so the *card* can choose: watching
+   * releases and watching an actively-developed project want different tags,
+   * and two cards can want different things from one cached response.
+   */
+  release: DockerTag;
+  newest: DockerTag;
 }
 
 export interface DockerHubState {
@@ -110,30 +118,39 @@ export function architecturesOf(tag: HubTag): string[] {
   return [...new Set(found)];
 }
 
-export function mapImage(
-  repository: HubRepository,
-  tag: HubTag,
-  namespace: string,
-): DockerImage {
-  const repo = repository.name ?? "";
-  const name = `${namespace}/${repo}`;
-  const tagName = tag.name ?? "latest";
+function toDockerTag(tag: HubTag, fallbackUpdatedAt?: string): DockerTag {
   return {
-    name,
-    repo,
-    tag: tagName,
-    isPrivate: Boolean(repository.is_private),
+    name: tag.name ?? "latest",
     ...(tag.digest ? { digest: tag.digest } : {}),
     ...(tag.full_size ? { sizeBytes: tag.full_size } : {}),
     architectures: architecturesOf(tag),
-    ...(tag.last_updated ?? repository.last_updated
-      ? { updatedAt: tag.last_updated ?? repository.last_updated }
+    ...(tag.last_updated ?? fallbackUpdatedAt
+      ? { updatedAt: tag.last_updated ?? fallbackUpdatedAt }
       : {}),
+  };
+}
+
+/** Null when the repository has no tags at all — the caller drops it. */
+export function mapImage(
+  repository: HubRepository,
+  tags: HubTag[],
+  namespace: string,
+): DockerImage | null {
+  const release = pickTag(tags);
+  if (!release) return null;
+  // Newest by push time, whatever its shape — usually the CI sha-* tag.
+  const newest = [...tags.filter((tag) => tag.name)].sort(byNewest)[0] ?? release;
+  const repo = repository.name ?? "";
+  return {
+    name: `${namespace}/${repo}`,
+    repo,
+    isPrivate: Boolean(repository.is_private),
     ...(repository.description?.trim()
       ? { description: repository.description.trim() }
       : {}),
-    pullCommand: `docker pull ${name}:${tagName}`,
     webUrl: `https://hub.docker.com/r/${namespace}/${repo}`,
+    release: toDockerTag(release, repository.last_updated),
+    newest: toDockerTag(newest, repository.last_updated),
   };
 }
 
@@ -224,8 +241,7 @@ export async function fetchDockerHub(
             });
             if (!response.ok) return null;
             const body = (await response.json()) as { results?: HubTag[] };
-            const tag = pickTag(body.results ?? []);
-            return tag ? mapImage(repository, tag, connection.namespace) : null;
+            return mapImage(repository, body.results ?? [], connection.namespace);
           } catch {
             return null;
           }

@@ -376,18 +376,24 @@ export function clearPlexConnection(): Promise<void> {
   return request("/api/plex/connection", { method: "DELETE" });
 }
 
-export interface DockerImage {
+export interface DockerTag {
   name: string;
-  repo: string;
-  tag: string;
-  isPrivate: boolean;
   digest?: string;
   sizeBytes?: number;
   architectures: string[];
   updatedAt?: string;
+}
+
+export interface DockerImage {
+  name: string;
+  repo: string;
+  isPrivate: boolean;
   description?: string;
-  pullCommand: string;
   webUrl: string;
+  /** The newest release-shaped tag; what most people want to pull. */
+  release: DockerTag;
+  /** The newest tag of any shape — often a CI commit-SHA build. */
+  newest: DockerTag;
 }
 
 export interface DockerHubState {

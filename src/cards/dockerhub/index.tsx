@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
-import { Field, TextInput } from "@/board/settings-fields";
-import type { DockerHubState, DockerImage } from "@/lib/api";
+import { Field, TextInput, Toggle } from "@/board/settings-fields";
+import type { DockerHubState, DockerImage, DockerTag } from "@/lib/api";
 import {
   clearDockerHubConnection,
   fetchDockerHubConnection,
@@ -15,8 +15,22 @@ import type {
   CardSettingsProps,
 } from "../registry";
 
-const configSchema = z.object({});
+const configSchema = z.object({
+  /**
+   * Which tag the card shows. "release" is the calm view (a version, else
+   * `latest`); "newest" follows whatever CI pushed last, which is what you
+   * want while a project is actively moving.
+   */
+  tagMode: z.enum(["release", "newest"]).default("release"),
+});
 type DockerHubConfig = z.infer<typeof configSchema>;
+
+type TagMode = DockerHubConfig["tagMode"];
+
+/** The tag this card is configured to show. */
+function selectTag(image: DockerImage, mode: TagMode): DockerTag {
+  return mode === "newest" ? image.newest : image.release;
+}
 
 function useDockerHub() {
   return useQuery({
@@ -80,10 +94,14 @@ function CubeIcon() {
 /** One row: image name on the left, the tag worth pulling on the right. */
 function ImageRow({
   image,
+  tag,
+  mode,
   size,
   onOpen,
 }: {
   image: DockerImage;
+  tag: DockerTag;
+  mode: TagMode;
   size: "small" | "wide" | "big";
   onOpen: (image: DockerImage) => void;
 }) {
@@ -104,14 +122,14 @@ function ImageRow({
       </span>
       <span className="grid min-w-0 justify-items-end gap-[3px]">
         <span className="font-mono text-[7px] leading-none font-[550] tracking-[0.07em] text-muted uppercase">
-          Latest tag
+          {mode === "newest" ? "Newest tag" : "Latest tag"}
         </span>
         <span
           className={`min-w-0 truncate font-mono leading-none font-semibold ${
             size === "small" ? "text-[12px]" : size === "wide" ? "text-[9px]" : "text-[11px]"
           }`}
         >
-          {image.tag}
+          {tag.name}
         </span>
       </span>
     </button>
@@ -136,9 +154,11 @@ function DetailRow({ label, value }: { label: string; value: string }) {
  */
 function ImageDetail({
   image,
+  tag,
   onClose,
 }: {
   image: DockerImage;
+  tag: DockerTag;
   onClose: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -151,12 +171,14 @@ function ImageDetail({
     return () => dialog?.close();
   }, []);
 
+  const pullCommand = `docker pull ${image.name}:${tag.name}`;
+
   const copy = async () => {
     // navigator.clipboard is secure-context only, and rackio is usually
     // reached over plain http on the tailnet — select the text instead so
     // the command is still one keystroke away.
     try {
-      await navigator.clipboard.writeText(image.pullCommand);
+      await navigator.clipboard.writeText(pullCommand);
       setCopyLabel("Copied");
       return;
     } catch {
@@ -197,7 +219,7 @@ function ImageDetail({
               Image details · {image.isPrivate ? "Private" : "Public"}
             </p>
             <h2 className="m-0 font-display text-[21px] leading-[1.08] font-semibold tracking-[-0.02em] break-all">
-              {image.name}:{image.tag}
+              {image.name}:{tag.name}
             </h2>
           </div>
           <button
@@ -215,13 +237,13 @@ function ImageDetail({
 
         <div className="mt-3 border-t border-border">
           <DetailRow label="Visibility" value={image.isPrivate ? "Private" : "Public"} />
-          <DetailRow label="Digest" value={shortDigest(image.digest)} />
-          <DetailRow label="Size" value={formatSize(image.sizeBytes)} />
+          <DetailRow label="Digest" value={shortDigest(tag.digest)} />
+          <DetailRow label="Size" value={formatSize(tag.sizeBytes)} />
           <DetailRow
             label="Architecture"
-            value={image.architectures.join(" · ") || "—"}
+            value={tag.architectures.join(" · ") || "—"}
           />
-          <DetailRow label="Updated" value={formatAge(image.updatedAt)} />
+          <DetailRow label="Updated" value={formatAge(tag.updatedAt)} />
         </div>
 
         <div className="mt-3.5 rounded-[11px] border border-border bg-[color-mix(in_oklch,var(--bg)_28%,var(--surface)_72%)] p-2.5">
@@ -241,7 +263,7 @@ function ImageDetail({
             ref={commandRef}
             className="mt-[9px] block overflow-auto font-mono text-[9px] leading-[1.45] whitespace-nowrap text-fg"
           >
-            {image.pullCommand}
+            {pullCommand}
           </code>
         </div>
 
@@ -285,7 +307,7 @@ function EmptyState({ state }: { state?: DockerHubState }) {
   );
 }
 
-function DockerHubCard({ footprint }: CardComponentProps<DockerHubConfig>) {
+function DockerHubCard({ config, footprint }: CardComponentProps<DockerHubConfig>) {
   const query = useDockerHub();
   const [detail, setDetail] = useState<DockerImage | null>(null);
   const state = query.data;
@@ -308,6 +330,8 @@ function DockerHubCard({ footprint }: CardComponentProps<DockerHubConfig>) {
         <div className="min-w-0">
           {footprint === "big" && (
             <p className="m-0 mb-px max-w-[23ch] truncate font-mono text-[8px] leading-[1.35] font-[550] tracking-[0.08em] text-muted uppercase">
+              {/* The row labels already say which tag mode is on; the kicker
+                  carries what they can't — how we're reading the registry. */}
               {state?.namespace ?? "Registry"} ·{" "}
               {state?.authenticated ? "Signed in" : "Public"}
             </p>
@@ -365,18 +389,55 @@ function DockerHubCard({ footprint }: CardComponentProps<DockerHubConfig>) {
           <ImageRow
             key={image.name}
             image={image}
+            tag={selectTag(image, config.tagMode)}
+            mode={config.tagMode}
             size={footprint}
             onOpen={setDetail}
           />
         ))}
       </section>
-      {detail && <ImageDetail image={detail} onClose={() => setDetail(null)} />}
+      {detail && (
+        <ImageDetail
+          image={detail}
+          tag={selectTag(detail, config.tagMode)}
+          onClose={() => setDetail(null)}
+        />
+      )}
     </div>
   );
 }
 
-function DockerHubSettings(props: CardSettingsProps<DockerHubConfig>) {
-  void props; // the connection is shared server state, not per-card config
+/**
+ * Which tag to show is per-card, not part of the connection: one board can
+ * carry a calm "releases" card and a second one tracking a project that is
+ * actively being pushed to.
+ */
+function TagModeField({
+  draft,
+  onChange,
+}: Pick<CardSettingsProps<DockerHubConfig>, "draft" | "onChange">) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Toggle
+        label="Show the newest tag"
+        checked={draft.tagMode === "newest"}
+        onChange={(checked) =>
+          onChange({ ...draft, tagMode: checked ? "newest" : "release" })
+        }
+      />
+      <p className="m-0 text-xs leading-[1.45] text-muted">
+        {draft.tagMode === "newest"
+          ? "Following whatever was pushed last, commit-SHA builds included — good for a project you're actively working on."
+          : "Showing the newest release: a version tag, or “latest” when there isn't one."}
+      </p>
+    </div>
+  );
+}
+
+function DockerHubSettings({
+  draft,
+  onChange,
+}: CardSettingsProps<DockerHubConfig>) {
   const queryClient = useQueryClient();
   const connection = useQuery({
     queryKey: ["dockerhub-connection"],
@@ -410,18 +471,21 @@ function DockerHubSettings(props: CardSettingsProps<DockerHubConfig>) {
 
   if (status?.configured) {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-bg px-3.5 py-3">
-        <div className="min-w-0 text-xs leading-[1.5] text-muted">
-          Reading <span className="break-all text-fg">{status.namespace}</span>
-          {status.authenticated ? <> as {status.username}</> : <> anonymously</>}.
+      <div className="flex flex-col gap-3.5">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-bg px-3.5 py-3">
+          <div className="min-w-0 text-xs leading-[1.5] text-muted">
+            Reading <span className="break-all text-fg">{status.namespace}</span>
+            {status.authenticated ? <> as {status.username}</> : <> anonymously</>}.
+          </div>
+          <button
+            type="button"
+            onClick={() => disconnect.mutate()}
+            className="min-h-9 shrink-0 cursor-pointer rounded-lg border border-border px-3 text-[12px] font-[550] text-muted transition-colors hover:text-danger"
+          >
+            Disconnect
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => disconnect.mutate()}
-          className="min-h-9 shrink-0 cursor-pointer rounded-lg border border-border px-3 text-[12px] font-[550] text-muted transition-colors hover:text-danger"
-        >
-          Disconnect
-        </button>
+        <TagModeField draft={draft} onChange={onChange} />
       </div>
     );
   }
@@ -491,6 +555,7 @@ function DockerHubSettings(props: CardSettingsProps<DockerHubConfig>) {
       ) : connect.isError ? (
         <p className="m-0 text-xs text-danger">Connection check failed — try again.</p>
       ) : null}
+      <TagModeField draft={draft} onChange={onChange} />
       <button
         type="button"
         disabled={connect.isPending || !namespace.trim()}
@@ -516,7 +581,7 @@ export const dockerHubCard: CardDefinition<DockerHubConfig> = {
   description: "Images in a Docker Hub namespace and the tag to pull.",
   footprints: ["small", "big", "wide"],
   defaultFootprint: "big",
-  defaultConfig: {},
+  defaultConfig: { tagMode: "release" },
   configSchema,
   Component: DockerHubCard,
   Settings: DockerHubSettings,

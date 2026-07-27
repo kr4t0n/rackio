@@ -26,7 +26,9 @@ server — the queue backfills from recently added, since most servers only
 have one thing in progress — with proxied artwork and deep links into the
 Plex web app), **docker hub** (images in a namespace with the tag worth
 pulling, and a detail sheet carrying digest, size, architectures and a
-copyable pull command — public namespaces need no credentials),
+copyable pull command — public namespaces need no credentials, and a per-card
+toggle switches between the newest release and the newest build for projects
+you're actively pushing to),
 **calendar** (month view, 12-day strip, and upcoming
 agenda from an iCal subscription configured in settings — recurrences
 expanded server-side), **calibre library** (fresh reads from Calibre-Web's

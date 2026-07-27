@@ -317,10 +317,15 @@ services (secrets + CORS live server-side), the SPA only talks to `/api`.
   silently read as anonymous and hide the private repos the user came for).
   Auth is `POST /v2/users/login/` with the access token as the password,
   exchanged for a JWT sent as `Authorization: JWT <token>` and cached 20 min.
-  The displayed tag comes from `pickTag`: a real version first, then
-  `latest`, then the newest tag of any shape — rackio's own repo has no semver
-  tags, so a naive "newest tag" would show `sha-6bab111`. buildx attestation
-  manifests report `architecture: "unknown"` and are filtered out.
+  Each image carries **two** tag candidates rather than one: `release`
+  (a version, else `latest`, else the newest of any shape — see `pickTag`) and
+  `newest` (whatever CI pushed last, usually a `sha-*`). Which one shows is
+  per-card config (`tagMode`), not part of the connection, so one board can
+  hold a calm releases card *and* a card following a project that's actively
+  moving — and both read from the same cached response. Each candidate keeps
+  its own digest/size/arches, because the detail sheet describes the tag on
+  screen. buildx attestation manifests report `architecture: "unknown"` and
+  are filtered out.
 - **AdGuard = third connector on the same shape** (settings-UI connection →
   connections.json, validate-before-save with URL candidates so a pasted
   `#/dashboard` URL works). Stats come from

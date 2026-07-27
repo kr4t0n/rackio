@@ -83,32 +83,56 @@ describe("architecturesOf", () => {
 });
 
 describe("mapImage", () => {
-  const image = mapImage(
-    {
-      name: "rackio",
-      description: "  Dashboard for the rack  ",
-      is_private: false,
-      last_updated: "2026-07-01T00:00:00Z",
-    },
-    {
-      name: "1.8.0",
-      digest: "sha256:abcd",
-      full_size: 74_875_890,
-      last_updated: "2026-07-26T15:25:35Z",
-      images: [{ architecture: "amd64" }],
-    },
-    "kr4t0n",
-  );
+  const repository = {
+    name: "rackio",
+    description: "  Dashboard for the rack  ",
+    is_private: false,
+    last_updated: "2026-07-01T00:00:00Z",
+  };
+  const release = {
+    name: "1.8.0",
+    digest: "sha256:abcd",
+    full_size: 74_875_890,
+    last_updated: "2026-07-26T10:00:00Z",
+    images: [{ architecture: "amd64" }],
+  };
+  const ciBuild = {
+    name: "sha-6bab111",
+    digest: "sha256:beef",
+    full_size: 74_875_999,
+    last_updated: "2026-07-26T15:25:35Z",
+    images: [{ architecture: "amd64" }, { architecture: "arm64" }],
+  };
+  const image = mapImage(repository, [release, ciBuild], "kr4t0n");
 
-  it("builds the name, pull command and Hub link", () => {
-    expect(image.name).toBe("kr4t0n/rackio");
-    expect(image.pullCommand).toBe("docker pull kr4t0n/rackio:1.8.0");
-    expect(image.webUrl).toBe("https://hub.docker.com/r/kr4t0n/rackio");
+  it("builds the name and Hub link", () => {
+    expect(image?.name).toBe("kr4t0n/rackio");
+    expect(image?.webUrl).toBe("https://hub.docker.com/r/kr4t0n/rackio");
+  });
+
+  it("carries both candidates so the card can choose", () => {
+    expect(image?.release.name).toBe("1.8.0");
+    expect(image?.newest.name).toBe("sha-6bab111");
+    // Each candidate keeps its own metadata — the detail sheet shows the
+    // digest/size/arches of whichever tag is on screen.
+    expect(image?.release.digest).toBe("sha256:abcd");
+    expect(image?.newest.digest).toBe("sha256:beef");
+    expect(image?.newest.architectures).toEqual(["amd64", "arm64"]);
   });
 
   it("prefers the tag's timestamp over the repository's and trims the blurb", () => {
-    expect(image.updatedAt).toBe("2026-07-26T15:25:35Z");
-    expect(image.description).toBe("Dashboard for the rack");
+    expect(image?.release.updatedAt).toBe("2026-07-26T10:00:00Z");
+    expect(image?.description).toBe("Dashboard for the rack");
+  });
+
+  it("collapses both candidates onto one tag when that's all there is", () => {
+    const only = mapImage(repository, [release], "kr4t0n");
+    expect(only?.release.name).toBe("1.8.0");
+    expect(only?.newest.name).toBe("1.8.0");
+  });
+
+  it("returns null for a repository with no tags", () => {
+    expect(mapImage(repository, [], "kr4t0n")).toBeNull();
   });
 });
 
